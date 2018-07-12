@@ -20,21 +20,6 @@ enum FineTimestampType {
     PLAIN = 2;
 }
 
-enum LocationSource {
-    // Unknown.
-    UNKNOWN = 0;
-
-    // GPS.
-    GPS = 1;
-
-    // Manually configured.
-    CONFIG = 2;
-
-    // Geo resolver.
-    GEO_RESOLVER = 3;
-}
-
-
 message UplinkTXInfo {
 	// Frequency (Hz).
 	uint32 frequency = 1;
@@ -71,23 +56,6 @@ message FSKModulationInfo {
 
     // Bitrate.
     uint32 bitrate = 2;
-}
-
-message Location {
-    // Latitude.
-    double latitude = 1;
-
-    // Longitude.
-    double longitude = 2;
-
-    // Altitude.
-    double altitude = 3;
-
-    // Location source.
-    LocationSource source = 4;
-
-    // Accuracy (in meters).
-    uint32 accuracy = 5;
 }
 
 message EncryptedFineTimestamp {
@@ -135,7 +103,7 @@ message UplinkRXInfo {
     uint32 antenna = 10;
 
     // Location.
-    Location location = 11;
+    common.Location location = 11;
 
     // Fine-timestamp type.
     FineTimestampType fine_timestamp_type = 12;

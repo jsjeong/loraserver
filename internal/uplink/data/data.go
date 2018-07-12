@@ -10,7 +10,6 @@ import (
 
 	"github.com/brocaar/loraserver/api/as"
 	"github.com/brocaar/loraserver/api/common"
-	gwPB "github.com/brocaar/loraserver/api/gw"
 	"github.com/brocaar/loraserver/api/nc"
 	"github.com/brocaar/loraserver/internal/config"
 	datadown "github.com/brocaar/loraserver/internal/downlink/data"
@@ -373,7 +372,7 @@ func sendFRMPayloadToApplicationServer(ctx *dataContext) error {
 			copy(mac[:], publishDataUpReq.RxInfo[i].GatewayId)
 
 			if gw, ok := gws[mac]; ok {
-				publishDataUpReq.RxInfo[i].Location = &gwPB.Location{
+				publishDataUpReq.RxInfo[i].Location = &common.Location{
 					Latitude:  gw.Location.Latitude,
 					Longitude: gw.Location.Longitude,
 					Altitude:  gw.Altitude,

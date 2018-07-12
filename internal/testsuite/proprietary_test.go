@@ -176,7 +176,7 @@ func TestUplinkProprietaryPHYPayload(t *testing.T) {
 								GatewayId: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 								Rssi:      -10,
 								LoraSnr:   5,
-								Location: &gw.Location{
+								Location: &commonPB.Location{
 									Latitude:  1.1234,
 									Longitude: 2.345,
 									Altitude:  10,

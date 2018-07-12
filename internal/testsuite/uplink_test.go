@@ -182,7 +182,7 @@ func TestUplinkScenarios(t *testing.T) {
 					RfChain:   uint32(rxInfo.RFChain),
 					Board:     uint32(rxInfo.Board),
 					Antenna:   uint32(rxInfo.Antenna),
-					Location: &gw.Location{
+					Location: &commonPB.Location{
 						Latitude:  gw1.Location.Latitude,
 						Longitude: gw1.Location.Longitude,
 						Altitude:  gw1.Altitude,
