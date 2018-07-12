@@ -9,6 +9,18 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 
 
+enum FineTimestampType {
+    // No fine-timestamp available.
+    NONE = 0;
+
+    // Encrypted fine-timestamp.
+    ENCRYPTED = 1;
+
+    // Plain fine-timestamp.
+    PLAIN = 2;
+}
+
+
 message UplinkTXInfo {
 	// Frequency (Hz).
 	uint32 frequency = 1;
@@ -58,6 +70,19 @@ message Location {
     double altitude = 3;
 }
 
+message EncryptedFineTimestamp {
+    // AES key index used for encrypting the fine timestamp.
+    uint32 aes_key_index = 1;
+
+    // Encrypted 'main' fine-timestamp (ns precision part of the timestamp).
+    bytes encrypted_ns = 2;
+}
+
+message PlainFineTimestamp {
+    // Full timestamp.
+    google.protobuf.Timestamp time = 1;
+}
+
 message UplinkRXInfo {
     // Gateway ID.
     bytes gateway_id = 1;
@@ -91,6 +116,18 @@ message UplinkRXInfo {
 
     // Location.
     Location location = 11;
+
+    // Fine-timestamp type.
+    FineTimestampType fine_timestamp_type = 12;
+
+    // Fine-timestamp data.
+    oneof fine_timestamp {
+        // Encrypted fine-timestamp data.
+        EncryptedFineTimestamp encrypted_fine_timestamp = 13;
+
+        // Plain fine-timestamp data.
+        PlainFineTimestamp plain_fine_timestamp = 14;
+    }
 }
 
 message DownlinkTXInfo {
