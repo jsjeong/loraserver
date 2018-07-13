@@ -71,6 +71,33 @@ message PlainFineTimestamp {
     google.protobuf.Timestamp time = 1;
 }
 
+message GatewayStats {
+    // Gateway ID.
+    bytes gateway_id = 1;
+
+    // Gateway time.
+    google.protobuf.Timestamp time = 2;
+
+    // Gateway location.
+    common.Location location = 3;
+
+    // Gateway configuration version (this maps to the config_version sent
+    // by LoRa Server to the gateway).
+    string config_version = 4;
+
+    // Number of radio packets received.
+    uint32 rx_packets_received = 5;
+
+    // Number of radio packets received with valid PHY CRC.
+    uint32 rx_packets_received_ok = 6;
+
+    // Number of downlink packets received for transmission.
+    uint32 tx_packets_received = 7;
+
+    // Number of downlink packets emitted.
+    uint32 tx_packets_emitted = 8;
+}
+
 message UplinkRXInfo {
     // Gateway ID.
     bytes gateway_id = 1;
