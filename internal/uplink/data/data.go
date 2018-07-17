@@ -39,6 +39,7 @@ var tasks = []func(*dataContext) error{
 	sendRXInfoToNetworkController,
 	handleFOptsMACCommands,
 	handleFRMPayloadMACCommands,
+	storeDeviceGatewayRXInfoSet,
 	appendMetaDataToUplinkHistory,
 	sendFRMPayloadToApplicationServer,
 	setLastRXInfoSet,
@@ -195,6 +196,25 @@ func appendMetaDataToUplinkHistory(ctx *dataContext) error {
 		MaxSNR:       maxSNR,
 		TXPowerIndex: ctx.DeviceSession.TXPowerIndex,
 	})
+
+	return nil
+}
+
+func storeDeviceGatewayRXInfoSet(ctx *dataContext) error {
+	var rxInfoSet storage.DeviceGatewayRXInfoSet
+
+	for i := range ctx.RXPacket.RXInfoSet {
+		rxInfoSet.Items = append(rxInfoSet.Items, storage.DeviceGatewayRXInfo{
+			GatewayID: ctx.RXPacket.RXInfoSet[i].MAC,
+			RSSI:      ctx.RXPacket.RXInfoSet[i].RSSI,
+			LoRaSNR:   ctx.RXPacket.RXInfoSet[i].LoRaSNR,
+		})
+	}
+
+	err := storage.SaveDeviceGatewayRXInfoSet(config.C.Redis.Pool, ctx.DeviceSession.DevEUI, rxInfoSet)
+	if err != nil {
+		return errors.Wrap(err, "save device gateway rx-info set error")
+	}
 
 	return nil
 }

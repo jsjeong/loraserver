@@ -165,7 +165,6 @@ func TestDeviceSession(t *testing.T) {
 					})
 				}
 			})
-
 		})
 	})
 }
@@ -321,6 +320,53 @@ func TestGetDeviceSessionForPHYPayload(t *testing.T) {
 					So(s.FCntUp, ShouldEqual, test.ExpectedFCntUp)
 				})
 			}
+		})
+	})
+}
+
+func TestDeviceGatewayRXInfoSet(t *testing.T) {
+	conf := test.GetConfig()
+
+	Convey("Given a clean database", t, func() {
+		p := common.NewRedisPool(conf.RedisURL)
+		test.MustFlushRedis(p)
+
+		devEUI := lorawan.EUI64{1, 2, 3, 4, 5, 6, 7, 8}
+
+		Convey("GetDeviceGatewayRXInfoSet for a non-existing device returns the expected error", func() {
+			_, err := GetDeviceGatewayRXInfoSet(p, devEUI)
+			So(err, ShouldEqual, ErrDoesNotExist)
+		})
+
+		Convey("When creating a DeviceGatewayRXInfoSet", func() {
+			rxInfoSet := DeviceGatewayRXInfoSet{
+				Items: []DeviceGatewayRXInfo{
+					{
+						GatewayID: lorawan.EUI64{2, 2, 3, 4, 5, 6, 7, 8},
+						RSSI:      -60,
+						LoRaSNR:   5.5,
+					},
+				},
+			}
+
+			So(SaveDeviceGatewayRXInfoSet(p, devEUI, rxInfoSet), ShouldBeNil)
+
+			Convey("Then retrieving it returns the same object", func() {
+				rxInfoSetGet, err := GetDeviceGatewayRXInfoSet(p, devEUI)
+				So(err, ShouldBeNil)
+				So(rxInfoSetGet, ShouldResemble, rxInfoSet)
+			})
+
+			Convey("When deleting the object", func() {
+				So(DeleteDeviceGatewayRXInfoSet(p, devEUI), ShouldBeNil)
+
+				Convey("Then the object has been removed", func() {
+					_, err := GetDeviceGatewayRXInfoSet(p, devEUI)
+					So(err, ShouldEqual, ErrDoesNotExist)
+
+					So(DeleteDeviceGatewayRXInfoSet(p, devEUI), ShouldEqual, ErrDoesNotExist)
+				})
+			})
 		})
 	})
 }
