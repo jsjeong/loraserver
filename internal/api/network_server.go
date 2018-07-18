@@ -1334,6 +1334,134 @@ func (n *NetworkServerAPI) GetNextDownlinkFCntForDevEUI(ctx context.Context, req
 	return &resp, nil
 }
 
+// CreateMulticastGroup creates the given multicast-group.
+func (n *NetworkServerAPI) CreateMulticastGroup(ctx context.Context, req *ns.CreateMulticastGroupRequest) (*ns.CreateMulticastGroupResponse, error) {
+	if req.MulticastGroup == nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "multicast_group must not be nil")
+	}
+
+	mg := storage.MulticastGroup{
+		FCnt:           req.MulticastGroup.FCnt,
+		DR:             int(req.MulticastGroup.Dr),
+		Frequency:      int(req.MulticastGroup.Frequency),
+		PingSlotPeriod: int(req.MulticastGroup.PingSlotPeriod),
+	}
+
+	switch req.MulticastGroup.GroupType {
+	case ns.MulticastGroupType_CLASS_B:
+		mg.GroupType = storage.MulticastGroupB
+	case ns.MulticastGroupType_CLASS_C:
+		mg.GroupType = storage.MulticastGroupC
+	default:
+		return nil, grpc.Errorf(codes.InvalidArgument, "invalid group_type")
+	}
+
+	copy(mg.ID[:], req.MulticastGroup.Id)
+	copy(mg.MCAddr[:], req.MulticastGroup.McAddr)
+	copy(mg.MCNetSKey[:], req.MulticastGroup.McNetSKey)
+
+	if err := storage.CreateMulticastGroup(config.C.PostgreSQL.DB, &mg); err != nil {
+		return nil, errToRPCError(err)
+	}
+
+	return &ns.CreateMulticastGroupResponse{
+		Id: mg.ID.Bytes(),
+	}, nil
+}
+
+// GetMulticastGroup returns the multicast-group given an id.
+func (n *NetworkServerAPI) GetMulticastGroup(ctx context.Context, req *ns.GetMulticastGroupRequest) (*ns.GetMulticastGroupResponse, error) {
+	var mgID uuid.UUID
+	copy(mgID[:], req.Id)
+
+	mg, err := storage.GetMulticastGroup(config.C.PostgreSQL.DB, mgID)
+	if err != nil {
+		return nil, errToRPCError(err)
+	}
+
+	resp := ns.GetMulticastGroupResponse{
+		MulticastGroup: &ns.MulticastGroup{
+			Id:             mg.ID.Bytes(),
+			McAddr:         mg.MCAddr[:],
+			McNetSKey:      mg.MCNetSKey[:],
+			FCnt:           mg.FCnt,
+			Dr:             uint32(mg.DR),
+			Frequency:      uint32(mg.Frequency),
+			PingSlotPeriod: uint32(mg.PingSlotPeriod),
+		},
+	}
+
+	switch mg.GroupType {
+	case storage.MulticastGroupB:
+		resp.MulticastGroup.GroupType = ns.MulticastGroupType_CLASS_B
+	case storage.MulticastGroupC:
+		resp.MulticastGroup.GroupType = ns.MulticastGroupType_CLASS_C
+	default:
+		return nil, grpc.Errorf(codes.Internal, "invalid group-type: %s", mg.GroupType)
+	}
+
+	resp.CreatedAt, err = ptypes.TimestampProto(mg.CreatedAt)
+	if err != nil {
+		return nil, errToRPCError(err)
+	}
+
+	resp.UpdatedAt, err = ptypes.TimestampProto(mg.UpdatedAt)
+	if err != nil {
+		return nil, errToRPCError(err)
+	}
+
+	return &resp, nil
+}
+
+// UpdateMulticastGroup updates the given multicast-group.
+func (n *NetworkServerAPI) UpdateMulticastGroup(ctx context.Context, req *ns.UpdateMulticastGroupRequest) (*empty.Empty, error) {
+	if req.MulticastGroup == nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "multicast_group must not be nil")
+	}
+
+	var mgID uuid.UUID
+	copy(mgID[:], req.MulticastGroup.Id)
+
+	mg, err := storage.GetMulticastGroup(config.C.PostgreSQL.DB, mgID)
+	if err != nil {
+		return nil, errToRPCError(err)
+	}
+
+	copy(mg.MCAddr[:], req.MulticastGroup.McAddr)
+	copy(mg.MCNetSKey[:], req.MulticastGroup.McNetSKey)
+	mg.FCnt = req.MulticastGroup.FCnt
+	mg.DR = int(req.MulticastGroup.Dr)
+	mg.Frequency = int(req.MulticastGroup.Frequency)
+	mg.PingSlotPeriod = int(req.MulticastGroup.PingSlotPeriod)
+
+	switch req.MulticastGroup.GroupType {
+	case ns.MulticastGroupType_CLASS_B:
+		mg.GroupType = storage.MulticastGroupB
+	case ns.MulticastGroupType_CLASS_C:
+		mg.GroupType = storage.MulticastGroupC
+	default:
+		return nil, grpc.Errorf(codes.InvalidArgument, "invalid group_type")
+	}
+
+	if err := storage.UpdateMulticastGroup(config.C.PostgreSQL.DB, &mg); err != nil {
+		return nil, errToRPCError(err)
+	}
+
+	return &empty.Empty{}, nil
+}
+
+// DeleteMulticastGroup deletes a multicast-group given an id.
+func (n *NetworkServerAPI) DeleteMulticastGroup(ctx context.Context, req *ns.DeleteMulticastGroupRequest) (*empty.Empty, error) {
+	var mgID uuid.UUID
+	copy(mgID[:], req.Id)
+
+	if err := storage.DeleteMulticastGroup(config.C.PostgreSQL.DB, mgID); err != nil {
+		return nil, errToRPCError(err)
+	}
+
+	return &empty.Empty{}, nil
+}
+
 // GetVersion returns the LoRa Server version.
 func (n *NetworkServerAPI) GetVersion(ctx context.Context, req *empty.Empty) (*ns.GetVersionResponse, error) {
 	region, ok := map[band.Name]common.Region{
