@@ -225,3 +225,46 @@ message DownlinkTXAck {
     // Error.
     string error = 3;
 }
+
+message GatewayConfiguration {
+    // Gateway ID.
+    bytes gateway_id = 1;
+
+    // Configuration version.
+    string version = 2;
+
+    // Channels.
+    repeated ChannelConfiguration channels = 3;
+}
+
+message ChannelConfiguration {
+    // Frequency (Hz).
+    uint32 frequency = 1;
+
+    // Channel modulation.
+    common.Modulation modulation = 2;
+
+    oneof modulation_config {
+        // LoRa modulation config.
+        LoRaModulationConfig lora_modulation_config = 3;
+
+        // FSK modulation config.
+        FSKModulationConfig fsk_modulation_config = 4;
+    }
+}
+
+message LoRaModulationConfig {
+    // Bandwidth.
+    uint32 bandwidth = 1;
+
+    // Spreading-factors.
+    repeated uint32 spreading_factors = 2;
+}
+
+message FSKModulationConfig {
+    // Bandwidth.
+    uint32 bandwidth = 1;
+
+    // Bitrate.
+    uint32 bitrate = 2;
+}
