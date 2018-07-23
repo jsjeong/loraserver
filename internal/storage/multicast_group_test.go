@@ -22,9 +22,10 @@ func (ts *StorageTestSuite) GetMulticastGroup() MulticastGroup {
 }
 
 func (ts *StorageTestSuite) TestMulticastGroup() {
-	assert := require.New(ts.T())
 
 	ts.T().Run("Create", func(t *testing.T) {
+		assert := require.New(t)
+
 		mc := ts.GetMulticastGroup()
 		err := CreateMulticastGroup(ts.Tx(), &mc)
 		assert.Nil(err)
@@ -74,6 +75,63 @@ func (ts *StorageTestSuite) TestMulticastGroup() {
 
 			_, err := GetMulticastGroup(ts.Tx(), mc.ID)
 			assert.Equal(ErrDoesNotExist, err)
+		})
+	})
+}
+
+func (ts *StorageTestSuite) TestMulticastQueue() {
+	assert := require.New(ts.T())
+
+	mg := ts.GetMulticastGroup()
+	assert.NoError(CreateMulticastGroup(ts.Tx(), &mg))
+
+	ts.T().Run("Create", func(t *testing.T) {
+		assert := require.New(t)
+
+		qi1 := MulticastQueueItem{
+			MulticastGroupID: mg.ID,
+			FCnt:             10,
+			FPort:            20,
+			FRMPayload:       []byte{1, 2, 3, 4},
+		}
+
+		qi2 := MulticastQueueItem{
+			MulticastGroupID: mg.ID,
+			FCnt:             11,
+			FPort:            20,
+			FRMPayload:       []byte{1, 2, 3, 4},
+		}
+
+		assert.NoError(CreateMulticastQueueItem(ts.Tx(), &qi1))
+		assert.NoError(CreateMulticastQueueItem(ts.Tx(), &qi2))
+
+		t.Run("List", func(t *testing.T) {
+			assert := require.New(t)
+
+			items, err := GetMulticastQueueItemsForMulticastGroup(ts.Tx(), mg.ID)
+			assert.NoError(err)
+			assert.Len(items, 2)
+
+			assert.EqualValues(items[0].FCnt, 10)
+			assert.EqualValues(items[1].FCnt, 11)
+		})
+
+		t.Run("Delete", func(t *testing.T) {
+			assert := require.New(t)
+
+			assert.NoError(DeleteMulticastQueueItem(ts.Tx(), mg.ID, 10))
+			items, err := GetMulticastQueueItemsForMulticastGroup(ts.Tx(), mg.ID)
+			assert.NoError(err)
+			assert.Len(items, 1)
+		})
+
+		t.Run("Flush", func(t *testing.T) {
+			assert := require.New(t)
+
+			assert.NoError(FlushMulticastQueueForMulticastGroup(ts.Tx(), mg.ID))
+			items, err := GetMulticastQueueItemsForMulticastGroup(ts.Tx(), mg.ID)
+			assert.NoError(err)
+			assert.Len(items, 0)
 		})
 	})
 }

@@ -111,6 +111,67 @@ func (ts *NetworkServerAPITestSuite) TestMulticastGroup() {
 	})
 }
 
+func (ts *NetworkServerAPITestSuite) TestMulticastQueue() {
+	assert := require.New(ts.T())
+
+	mg := storage.MulticastGroup{}
+	assert.NoError(storage.CreateMulticastGroup(ts.DB(), &mg))
+
+	ts.T().Run("Create", func(t *testing.T) {
+		assert := require.New(t)
+
+		qi1 := ns.MulticastQueueItem{
+			MulticastGroupId: mg.ID.Bytes(),
+			FCnt:             10,
+			FPort:            20,
+			FrmPayload:       []byte{1, 2, 3, 4},
+		}
+		qi2 := ns.MulticastQueueItem{
+			MulticastGroupId: mg.ID.Bytes(),
+			FCnt:             11,
+			FPort:            20,
+			FrmPayload:       []byte{1, 2, 3, 4},
+		}
+
+		_, err := ts.api.CreateMulticastQueueItem(context.Background(), &ns.CreateMulticastQueueItemRequest{
+			Item: &qi1,
+		})
+		assert.NoError(err)
+		_, err = ts.api.CreateMulticastQueueItem(context.Background(), &ns.CreateMulticastQueueItemRequest{
+			Item: &qi2,
+		})
+		assert.NoError(err)
+
+		t.Run("List", func(t *testing.T) {
+			assert := require.New(t)
+
+			listResp, err := ts.api.GetMulticastQueueItemsForMulticastGroup(context.Background(), &ns.GetMulticastQueueItemsForMulticastGroupRequest{
+				MulticastGroupId: mg.ID.Bytes(),
+			})
+			assert.NoError(err)
+			assert.Len(listResp.Items, 2)
+
+			assert.EqualValues(10, listResp.Items[0].FCnt)
+			assert.EqualValues(11, listResp.Items[1].FCnt)
+		})
+
+		t.Run("Delete", func(t *testing.T) {
+			assert := require.New(t)
+
+			_, err := ts.api.FlushMulticastQueueForMulticastGroup(context.Background(), &ns.FlushMulticastQueueForMulticastGroupRequest{
+				MulticastGroupId: mg.ID.Bytes(),
+			})
+			assert.NoError(err)
+
+			listResp, err := ts.api.GetMulticastQueueItemsForMulticastGroup(context.Background(), &ns.GetMulticastQueueItemsForMulticastGroupRequest{
+				MulticastGroupId: mg.ID.Bytes(),
+			})
+			assert.NoError(err)
+			assert.Len(listResp.Items, 0)
+		})
+	})
+}
+
 func (ts *NetworkServerAPITestSuite) TestDevice() {
 	assert := require.New(ts.T())
 

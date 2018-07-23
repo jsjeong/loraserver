@@ -144,6 +144,15 @@ service NetworkServerService {
     // GetMulticastGroupsForDevice returns the multicast-groups that are assigned to the given device.
     rpc GetMulticastGroupsForDevice(GetMulticastGroupsForDeviceRequest) returns (GetMulticastGroupsForDeviceResponse) {}
 
+    // CreateMulticastQueueItem creates the given multicast queue-item.
+    rpc CreateMulticastQueueItem(CreateMulticastQueueItemRequest) returns (google.protobuf.Empty) {}
+
+    // FlushMulticastQueueForMulticastGroup flushes the multicast device-queue given a multicast-group id.
+    rpc FlushMulticastQueueForMulticastGroup(FlushMulticastQueueForMulticastGroupRequest) returns (google.protobuf.Empty) {}
+
+    // GetMulticastQueueItemsForMulticastGroup returns the queue-items given a multicast-group id.
+    rpc GetMulticastQueueItemsForMulticastGroup(GetMulticastQueueItemsForMulticastGroupRequest) returns (GetMulticastQueueItemsForMulticastGroupResponse) {}
+
     // GetVersion returns the LoRa Server version.
     rpc GetVersion(google.protobuf.Empty) returns (GetVersionResponse) {}
 }
@@ -748,4 +757,36 @@ message DeviceMulticastGroup {
 message GetMulticastGroupsForDeviceResponse {
     // Multicast-groups.
     repeated DeviceMulticastGroup multicast_groups = 1;
+}
+
+message MulticastQueueItem {
+    // Multicast-group id.
+    bytes multicast_group_id = 1;
+
+    // Encrypted FRMPayload bytes.
+    bytes frm_payload = 2;
+
+    // Frame-counter of payload.
+    uint32 f_cnt = 3;
+
+    // Frame-port of payload.
+    uint32 f_port = 4;
+}
+
+message CreateMulticastQueueItemRequest {
+    MulticastQueueItem item = 1;
+}
+
+message FlushMulticastQueueForMulticastGroupRequest {
+    // Multicast-group id.
+    bytes multicast_group_id = 1;
+}
+
+message GetMulticastQueueItemsForMulticastGroupRequest {
+    // Multicast-group id.
+    bytes multicast_group_id = 1;
+}
+
+message GetMulticastQueueItemsForMulticastGroupResponse {
+    repeated MulticastQueueItem items = 1;
 }

@@ -20,7 +20,19 @@ create table device_multicast_group (
     primary key(multicast_group_id, dev_eui)
 );
 
+create table multicast_queue (
+    multicast_group_id uuid not null references multicast_group,
+    f_cnt int not null,
+    created_at timestamp with time zone not null,
+    f_port int not null,
+    frm_payload bytea,
+
+    primary key(multicast_group_id, f_cnt)
+);
+
 -- +migrate Down
+drop table multicast_queue;
+
 drop table device_multicast_group;
 
 drop table multicast_group;

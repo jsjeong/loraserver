@@ -1510,6 +1510,65 @@ func (n *NetworkServerAPI) GetMulticastGroupsForDevice(ctx context.Context, req 
 	return &out, nil
 }
 
+// CreateMulticastQueueItem creates the given multicast queue-item.
+func (n *NetworkServerAPI) CreateMulticastQueueItem(ctx context.Context, req *ns.CreateMulticastQueueItemRequest) (*empty.Empty, error) {
+	if req.Item == nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "item must not be nil")
+	}
+
+	var mgID uuid.UUID
+	copy(mgID[:], req.Item.MulticastGroupId)
+
+	qi := storage.MulticastQueueItem{
+		MulticastGroupID: mgID,
+		FCnt:             req.Item.FCnt,
+		FPort:            uint8(req.Item.FPort),
+		FRMPayload:       req.Item.FrmPayload,
+	}
+	if err := storage.CreateMulticastQueueItem(config.C.PostgreSQL.DB, &qi); err != nil {
+		return nil, errToRPCError(err)
+	}
+
+	return &empty.Empty{}, nil
+}
+
+// FlushMulticastQueueForMulticastGroup flushes the multicast device-queue given a multicast-group id.
+func (n *NetworkServerAPI) FlushMulticastQueueForMulticastGroup(ctx context.Context, req *ns.FlushMulticastQueueForMulticastGroupRequest) (*empty.Empty, error) {
+	var mgID uuid.UUID
+	copy(mgID[:], req.MulticastGroupId)
+
+	if err := storage.FlushMulticastQueueForMulticastGroup(config.C.PostgreSQL.DB, mgID); err != nil {
+		return nil, errToRPCError(err)
+	}
+
+	return &empty.Empty{}, nil
+}
+
+// GetMulticastQueueItemsForMulticastGroup returns the queue-items given a multicast-group id.
+func (n *NetworkServerAPI) GetMulticastQueueItemsForMulticastGroup(ctx context.Context, req *ns.GetMulticastQueueItemsForMulticastGroupRequest) (*ns.GetMulticastQueueItemsForMulticastGroupResponse, error) {
+	var mgID uuid.UUID
+	copy(mgID[:], req.MulticastGroupId)
+
+	items, err := storage.GetMulticastQueueItemsForMulticastGroup(config.C.PostgreSQL.DB, mgID)
+	if err != nil {
+		return nil, errToRPCError(err)
+	}
+
+	var out ns.GetMulticastQueueItemsForMulticastGroupResponse
+	for i := range items {
+		qi := ns.MulticastQueueItem{
+			MulticastGroupId: items[i].MulticastGroupID.Bytes(),
+			FrmPayload:       items[i].FRMPayload,
+			FCnt:             items[i].FCnt,
+			FPort:            uint32(items[i].FPort),
+		}
+
+		out.Items = append(out.Items, &qi)
+	}
+
+	return &out, nil
+}
+
 // GetVersion returns the LoRa Server version.
 func (n *NetworkServerAPI) GetVersion(ctx context.Context, req *empty.Empty) (*ns.GetVersionResponse, error) {
 	region, ok := map[band.Name]common.Region{
