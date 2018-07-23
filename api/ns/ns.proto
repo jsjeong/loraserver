@@ -135,6 +135,15 @@ service NetworkServerService {
     // DeleteMulticastGroup deletes a multicast-group given an id.
     rpc DeleteMulticastGroup(DeleteMulticastGroupRequest) returns (google.protobuf.Empty) {}
 
+    // AddDeviceToMulticastGroup adds the given device to the given multicast-group.
+    rpc AddDeviceToMulticastGroup(AddDeviceToMulticastGroupRequest) returns (google.protobuf.Empty) {}
+
+    // RemoveDeviceFromMulticastGroup removes the given device from the given multicast-group.
+    rpc RemoveDeviceFromMulticastGroup(RemoveDeviceFromMulticastGroupRequest) returns (google.protobuf.Empty) {}
+
+    // GetMulticastGroupsForDevice returns the multicast-groups that are assigned to the given device.
+    rpc GetMulticastGroupsForDevice(GetMulticastGroupsForDeviceRequest) returns (GetMulticastGroupsForDeviceResponse) {}
+
     // GetVersion returns the LoRa Server version.
     rpc GetVersion(google.protobuf.Empty) returns (GetVersionResponse) {}
 }
@@ -707,4 +716,36 @@ message UpdateMulticastGroupRequest {
 message DeleteMulticastGroupRequest {
     // Multicast-group ID.
     bytes id = 1;
+}
+
+
+message AddDeviceToMulticastGroupRequest {
+    // Device EUI.
+    bytes dev_eui = 1;
+
+    // Multicast-group ID.
+    bytes multicast_group_id = 2;
+}
+
+message RemoveDeviceFromMulticastGroupRequest {
+    // Device EUI.
+    bytes dev_eui = 1;
+
+    // Multicast-group ID.
+    bytes multicast_group_id = 2;
+}
+
+message GetMulticastGroupsForDeviceRequest {
+    // Device EUI.
+    bytes dev_eui = 1;
+}
+
+message DeviceMulticastGroup {
+    // Multicast-group ID.
+    bytes multicast_group_id = 1;
+}
+
+message GetMulticastGroupsForDeviceResponse {
+    // Multicast-groups.
+    repeated DeviceMulticastGroup multicast_groups = 1;
 }

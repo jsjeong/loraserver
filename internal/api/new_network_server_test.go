@@ -4,6 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/brocaar/loraserver/internal/storage"
+	"github.com/brocaar/lorawan"
+
 	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -103,6 +106,128 @@ func (ts *NetworkServerAPITestSuite) TestMulticastGroup() {
 				Id: createResp.Id,
 			})
 			assert.NotNil(err)
+			assert.Equal(codes.NotFound, grpc.Code(err))
+		})
+	})
+}
+
+func (ts *NetworkServerAPITestSuite) TestDevice() {
+	assert := require.New(ts.T())
+
+	rp := storage.RoutingProfile{}
+	assert.NoError(storage.CreateRoutingProfile(ts.DB(), &rp))
+
+	sp := storage.ServiceProfile{}
+	assert.NoError(storage.CreateServiceProfile(ts.DB(), &sp))
+
+	dp := storage.DeviceProfile{}
+	assert.NoError(storage.CreateDeviceProfile(ts.DB(), &dp))
+
+	devEUI := lorawan.EUI64{1, 2, 3, 4, 5, 6, 7, 8}
+
+	ts.T().Run("Create", func(t *testing.T) {
+		assert := require.New(t)
+
+		d := &ns.Device{
+			DevEui:           devEUI[:],
+			DeviceProfileId:  dp.ID.Bytes(),
+			ServiceProfileId: sp.ID.Bytes(),
+			RoutingProfileId: rp.ID.Bytes(),
+			SkipFCntCheck:    true,
+		}
+
+		_, err := ts.api.CreateDevice(context.Background(), &ns.CreateDeviceRequest{
+			Device: d,
+		})
+		assert.NoError(err)
+
+		t.Run("Get", func(t *testing.T) {
+			assert := require.New(t)
+
+			getResp, err := ts.api.GetDevice(context.Background(), &ns.GetDeviceRequest{
+				DevEui: devEUI[:],
+			})
+			assert.NoError(err)
+			assert.Equal(d, getResp.Device)
+		})
+
+		t.Run("Update", func(t *testing.T) {
+			assert := require.New(t)
+
+			rp2 := storage.RoutingProfile{}
+			assert.NoError(storage.CreateRoutingProfile(ts.DB(), &rp2))
+
+			d.RoutingProfileId = rp2.ID.Bytes()
+			_, err := ts.api.UpdateDevice(context.Background(), &ns.UpdateDeviceRequest{
+				Device: d,
+			})
+			assert.NoError(err)
+
+			getResp, err := ts.api.GetDevice(context.Background(), &ns.GetDeviceRequest{
+				DevEui: devEUI[:],
+			})
+			assert.NoError(err)
+			assert.Equal(d, getResp.Device)
+		})
+
+		t.Run("Multicast-groups", func(t *testing.T) {
+			assert := require.New(t)
+
+			mg1 := storage.MulticastGroup{}
+			assert.NoError(storage.CreateMulticastGroup(ts.DB(), &mg1))
+
+			t.Run("Add", func(t *testing.T) {
+				_, err := ts.api.AddDeviceToMulticastGroup(context.Background(), &ns.AddDeviceToMulticastGroupRequest{
+					DevEui:           devEUI[:],
+					MulticastGroupId: mg1.ID.Bytes(),
+				})
+				assert.NoError(err)
+
+				t.Run("List", func(t *testing.T) {
+					assert := require.New(t)
+
+					listResp, err := ts.api.GetMulticastGroupsForDevice(context.Background(), &ns.GetMulticastGroupsForDeviceRequest{
+						DevEui: devEUI[:],
+					})
+					assert.NoError(err)
+					assert.Equal([]*ns.DeviceMulticastGroup{
+						{
+							MulticastGroupId: mg1.ID.Bytes(),
+						},
+					}, listResp.MulticastGroups)
+				})
+
+				t.Run("Remove", func(t *testing.T) {
+					assert := require.New(t)
+
+					_, err := ts.api.RemoveDeviceFromMulticastGroup(context.Background(), &ns.RemoveDeviceFromMulticastGroupRequest{
+						DevEui:           devEUI[:],
+						MulticastGroupId: mg1.ID.Bytes(),
+					})
+					assert.NoError(err)
+
+					_, err = ts.api.RemoveDeviceFromMulticastGroup(context.Background(), &ns.RemoveDeviceFromMulticastGroupRequest{
+						DevEui:           devEUI[:],
+						MulticastGroupId: mg1.ID.Bytes(),
+					})
+					assert.Error(err)
+					assert.Equal(codes.NotFound, grpc.Code(err))
+				})
+			})
+		})
+
+		t.Run("Delete", func(t *testing.T) {
+			assert := require.New(t)
+
+			_, err := ts.api.DeleteDevice(context.Background(), &ns.DeleteDeviceRequest{
+				DevEui: devEUI[:],
+			})
+			assert.NoError(err)
+
+			_, err = ts.api.DeleteDevice(context.Background(), &ns.DeleteDeviceRequest{
+				DevEui: devEUI[:],
+			})
+			assert.Error(err)
 			assert.Equal(codes.NotFound, grpc.Code(err))
 		})
 	})

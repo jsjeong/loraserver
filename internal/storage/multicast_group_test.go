@@ -6,17 +6,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/brocaar/loraserver/internal/test"
 	"github.com/brocaar/lorawan"
-	"github.com/stretchr/testify/suite"
 )
 
-type MulticastGroupTestSuite struct {
-	suite.Suite
-	test.DatabaseTestSuiteBase
-}
-
-func (ts *MulticastGroupTestSuite) GetMulticastGroup() MulticastGroup {
+func (ts *StorageTestSuite) GetMulticastGroup() MulticastGroup {
 	return MulticastGroup{
 		MCAddr:         lorawan.DevAddr{1, 2, 3, 4},
 		MCNetSKey:      lorawan.AES128Key{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
@@ -28,7 +21,7 @@ func (ts *MulticastGroupTestSuite) GetMulticastGroup() MulticastGroup {
 	}
 }
 
-func (ts *MulticastGroupTestSuite) TestFunctions() {
+func (ts *StorageTestSuite) TestMulticastGroup() {
 	assert := require.New(ts.T())
 
 	ts.T().Run("Create", func(t *testing.T) {
@@ -83,8 +76,4 @@ func (ts *MulticastGroupTestSuite) TestFunctions() {
 			assert.Equal(ErrDoesNotExist, err)
 		})
 	})
-}
-
-func TestMulticastGroup(t *testing.T) {
-	suite.Run(t, new(MulticastGroupTestSuite))
 }

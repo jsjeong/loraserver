@@ -1462,6 +1462,54 @@ func (n *NetworkServerAPI) DeleteMulticastGroup(ctx context.Context, req *ns.Del
 	return &empty.Empty{}, nil
 }
 
+// AddDeviceToMulticastGroup adds the given device to the given multicast-group.
+func (n *NetworkServerAPI) AddDeviceToMulticastGroup(ctx context.Context, req *ns.AddDeviceToMulticastGroupRequest) (*empty.Empty, error) {
+	var devEUI lorawan.EUI64
+	var mgID uuid.UUID
+	copy(devEUI[:], req.DevEui)
+	copy(mgID[:], req.MulticastGroupId)
+
+	if err := storage.AddDeviceToMulticastGroup(config.C.PostgreSQL.DB, devEUI, mgID); err != nil {
+		return nil, errToRPCError(err)
+	}
+
+	return &empty.Empty{}, nil
+}
+
+// RemoveDeviceFromMulticastGroup removes the given device from the given multicast-group.
+func (n *NetworkServerAPI) RemoveDeviceFromMulticastGroup(ctx context.Context, req *ns.RemoveDeviceFromMulticastGroupRequest) (*empty.Empty, error) {
+	var devEUI lorawan.EUI64
+	var mgID uuid.UUID
+	copy(devEUI[:], req.DevEui)
+	copy(mgID[:], req.MulticastGroupId)
+
+	if err := storage.RemoveDeviceFromMulticastGroup(config.C.PostgreSQL.DB, devEUI, mgID); err != nil {
+		return nil, errToRPCError(err)
+	}
+
+	return &empty.Empty{}, nil
+}
+
+// GetMulticastGroupsForDevice returns the multicast-groups that are assigned to the given device.
+func (n *NetworkServerAPI) GetMulticastGroupsForDevice(ctx context.Context, req *ns.GetMulticastGroupsForDeviceRequest) (*ns.GetMulticastGroupsForDeviceResponse, error) {
+	var devEUI lorawan.EUI64
+	copy(devEUI[:], req.DevEui)
+
+	groups, err := storage.GetMulticastGroupsForDevEUI(config.C.PostgreSQL.DB, devEUI)
+	if err != nil {
+		return nil, errToRPCError(err)
+	}
+
+	var out ns.GetMulticastGroupsForDeviceResponse
+	for i := range groups {
+		out.MulticastGroups = append(out.MulticastGroups, &ns.DeviceMulticastGroup{
+			MulticastGroupId: groups[i].Bytes(),
+		})
+	}
+
+	return &out, nil
+}
+
 // GetVersion returns the LoRa Server version.
 func (n *NetworkServerAPI) GetVersion(ctx context.Context, req *empty.Empty) (*ns.GetVersionResponse, error) {
 	region, ok := map[band.Name]common.Region{
