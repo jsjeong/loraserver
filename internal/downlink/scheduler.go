@@ -12,20 +12,20 @@ import (
 	"github.com/brocaar/loraserver/internal/storage"
 )
 
-// SchedulerLoop starts an infinit loop calling the scheduler loop for Class-B
+// BCSchedulerLoop starts an infinit loop calling the scheduler loop for Class-B
 // and Class-C sheduling.
-func SchedulerLoop() {
+func BCSchedulerLoop() {
 	for {
 		log.Debug("running class-c scheduler batch")
-		if err := ScheduleBatch(config.ClassCScheduleBatchSize); err != nil {
+		if err := ScheduleBCBatch(config.SchedulerBatchSize); err != nil {
 			log.WithError(err).Error("class-c scheduler error")
 		}
-		time.Sleep(config.ClassCScheduleInterval)
+		time.Sleep(config.SchedulerInterval)
 	}
 }
 
-// ScheduleBatch schedules a downlink batch.
-func ScheduleBatch(size int) error {
+// ScheduleBCBatch schedules a downlink batch (Class-B or Class-C).
+func ScheduleBCBatch(size int) error {
 	return storage.Transaction(config.C.PostgreSQL.DB, func(tx sqlx.Ext) error {
 		devices, err := storage.GetDevicesWithClassBOrClassCDeviceQueueItems(tx, size)
 		if err != nil {

@@ -1374,7 +1374,7 @@ func (n *NetworkServerAPI) GetMulticastGroup(ctx context.Context, req *ns.GetMul
 	var mgID uuid.UUID
 	copy(mgID[:], req.Id)
 
-	mg, err := storage.GetMulticastGroup(config.C.PostgreSQL.DB, mgID)
+	mg, err := storage.GetMulticastGroup(config.C.PostgreSQL.DB, mgID, false)
 	if err != nil {
 		return nil, errToRPCError(err)
 	}
@@ -1422,29 +1422,36 @@ func (n *NetworkServerAPI) UpdateMulticastGroup(ctx context.Context, req *ns.Upd
 	var mgID uuid.UUID
 	copy(mgID[:], req.MulticastGroup.Id)
 
-	mg, err := storage.GetMulticastGroup(config.C.PostgreSQL.DB, mgID)
+	err := storage.Transaction(config.C.PostgreSQL.DB, func(tx sqlx.Ext) error {
+		mg, err := storage.GetMulticastGroup(tx, mgID, true)
+		if err != nil {
+			return errToRPCError(err)
+		}
+
+		copy(mg.MCAddr[:], req.MulticastGroup.McAddr)
+		copy(mg.MCNetSKey[:], req.MulticastGroup.McNetSKey)
+		mg.FCnt = req.MulticastGroup.FCnt
+		mg.DR = int(req.MulticastGroup.Dr)
+		mg.Frequency = int(req.MulticastGroup.Frequency)
+		mg.PingSlotPeriod = int(req.MulticastGroup.PingSlotPeriod)
+
+		switch req.MulticastGroup.GroupType {
+		case ns.MulticastGroupType_CLASS_B:
+			mg.GroupType = storage.MulticastGroupB
+		case ns.MulticastGroupType_CLASS_C:
+			mg.GroupType = storage.MulticastGroupC
+		default:
+			return grpc.Errorf(codes.InvalidArgument, "invalid group_type")
+		}
+
+		if err := storage.UpdateMulticastGroup(tx, &mg); err != nil {
+			return errToRPCError(err)
+		}
+
+		return nil
+	})
 	if err != nil {
-		return nil, errToRPCError(err)
-	}
-
-	copy(mg.MCAddr[:], req.MulticastGroup.McAddr)
-	copy(mg.MCNetSKey[:], req.MulticastGroup.McNetSKey)
-	mg.FCnt = req.MulticastGroup.FCnt
-	mg.DR = int(req.MulticastGroup.Dr)
-	mg.Frequency = int(req.MulticastGroup.Frequency)
-	mg.PingSlotPeriod = int(req.MulticastGroup.PingSlotPeriod)
-
-	switch req.MulticastGroup.GroupType {
-	case ns.MulticastGroupType_CLASS_B:
-		mg.GroupType = storage.MulticastGroupB
-	case ns.MulticastGroupType_CLASS_C:
-		mg.GroupType = storage.MulticastGroupC
-	default:
-		return nil, grpc.Errorf(codes.InvalidArgument, "invalid group_type")
-	}
-
-	if err := storage.UpdateMulticastGroup(config.C.PostgreSQL.DB, &mg); err != nil {
-		return nil, errToRPCError(err)
+		return nil, err
 	}
 
 	return &empty.Empty{}, nil
@@ -1519,14 +1526,57 @@ func (n *NetworkServerAPI) CreateMulticastQueueItem(ctx context.Context, req *ns
 	var mgID uuid.UUID
 	copy(mgID[:], req.Item.MulticastGroupId)
 
-	qi := storage.MulticastQueueItem{
-		MulticastGroupID: mgID,
-		FCnt:             req.Item.FCnt,
-		FPort:            uint8(req.Item.FPort),
-		FRMPayload:       req.Item.FrmPayload,
-	}
-	if err := storage.CreateMulticastQueueItem(config.C.PostgreSQL.DB, &qi); err != nil {
-		return nil, errToRPCError(err)
+	err := storage.Transaction(config.C.PostgreSQL.DB, func(tx sqlx.Ext) error {
+		mg, err := storage.GetMulticastGroup(tx, mgID, true)
+		if err != nil {
+			return errToRPCError(err)
+		}
+
+		var gpsEpochTS *time.Duration
+
+		// in case of class-b multicast, we need to calculate at which
+		// 'time since gps epoch' duration the frame must be emitted
+		if mg.GroupType == storage.MulticastGroupB {
+			var pingSlotNb int
+			if mg.PingSlotPeriod != 0 {
+				pingSlotNb = (1 << 12) / mg.PingSlotPeriod
+			}
+
+			scheduleAfterGPSEpochTS, err := storage.GetMaxEmitAtTimeSinceGPSEpochForMulticastGroup(tx, mg.ID)
+			if err != nil {
+				return errToRPCError(err)
+			}
+
+			if scheduleAfterGPSEpochTS == 0 {
+				scheduleAfterGPSEpochTS = gps.Time(time.Now()).TimeSinceGPSEpoch()
+
+				// take some margin into account
+				scheduleAfterGPSEpochTS += classBScheduleMargin
+			}
+
+			ts, err := classb.GetNextPingSlotAfter(scheduleAfterGPSEpochTS, mg.MCAddr, pingSlotNb)
+			if err != nil {
+				return errToRPCError(err)
+			}
+
+			gpsEpochTS = &ts
+		}
+
+		qi := storage.MulticastQueueItem{
+			MulticastGroupID:        mg.ID,
+			FCnt:                    req.Item.FCnt,
+			FPort:                   uint8(req.Item.FPort),
+			FRMPayload:              req.Item.FrmPayload,
+			EmitAtTimeSinceGPSEpoch: gpsEpochTS,
+		}
+		if err := storage.CreateMulticastQueueItem(tx, &qi); err != nil {
+			return errToRPCError(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return &empty.Empty{}, nil

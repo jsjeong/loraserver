@@ -3,7 +3,11 @@ package api
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/brocaar/loraserver/internal/downlink/data/classb"
+
+	"github.com/brocaar/loraserver/internal/gps"
 	"github.com/brocaar/loraserver/internal/storage"
 	"github.com/brocaar/lorawan"
 
@@ -112,64 +116,138 @@ func (ts *NetworkServerAPITestSuite) TestMulticastGroup() {
 }
 
 func (ts *NetworkServerAPITestSuite) TestMulticastQueue() {
-	assert := require.New(ts.T())
-
-	mg := storage.MulticastGroup{}
-	assert.NoError(storage.CreateMulticastGroup(ts.DB(), &mg))
-
-	ts.T().Run("Create", func(t *testing.T) {
+	ts.T().Run("Class-B", func(t *testing.T) {
 		assert := require.New(t)
 
-		qi1 := ns.MulticastQueueItem{
-			MulticastGroupId: mg.ID.Bytes(),
-			FCnt:             10,
-			FPort:            20,
-			FrmPayload:       []byte{1, 2, 3, 4},
+		mg := storage.MulticastGroup{
+			GroupType:      storage.MulticastGroupB,
+			MCAddr:         lorawan.DevAddr{1, 2, 3, 4},
+			PingSlotPeriod: 32 * 128, // every 128 seconds
 		}
-		qi2 := ns.MulticastQueueItem{
-			MulticastGroupId: mg.ID.Bytes(),
-			FCnt:             11,
-			FPort:            20,
-			FrmPayload:       []byte{1, 2, 3, 4},
-		}
+		assert.NoError(storage.CreateMulticastGroup(ts.DB(), &mg))
 
-		_, err := ts.api.CreateMulticastQueueItem(context.Background(), &ns.CreateMulticastQueueItemRequest{
-			Item: &qi1,
-		})
-		assert.NoError(err)
-		_, err = ts.api.CreateMulticastQueueItem(context.Background(), &ns.CreateMulticastQueueItemRequest{
-			Item: &qi2,
-		})
-		assert.NoError(err)
-
-		t.Run("List", func(t *testing.T) {
+		ts.T().Run("Create", func(t *testing.T) {
 			assert := require.New(t)
 
-			listResp, err := ts.api.GetMulticastQueueItemsForMulticastGroup(context.Background(), &ns.GetMulticastQueueItemsForMulticastGroupRequest{
+			qi1 := ns.MulticastQueueItem{
 				MulticastGroupId: mg.ID.Bytes(),
+				FCnt:             10,
+				FPort:            20,
+				FrmPayload:       []byte{1, 2, 3, 4},
+			}
+			qi2 := ns.MulticastQueueItem{
+				MulticastGroupId: mg.ID.Bytes(),
+				FCnt:             11,
+				FPort:            20,
+				FrmPayload:       []byte{1, 2, 3, 4},
+			}
+
+			_, err := ts.api.CreateMulticastQueueItem(context.Background(), &ns.CreateMulticastQueueItemRequest{
+				Item: &qi1,
 			})
 			assert.NoError(err)
-			assert.Len(listResp.Items, 2)
-
-			assert.EqualValues(10, listResp.Items[0].FCnt)
-			assert.EqualValues(11, listResp.Items[1].FCnt)
-		})
-
-		t.Run("Delete", func(t *testing.T) {
-			assert := require.New(t)
-
-			_, err := ts.api.FlushMulticastQueueForMulticastGroup(context.Background(), &ns.FlushMulticastQueueForMulticastGroupRequest{
-				MulticastGroupId: mg.ID.Bytes(),
+			_, err = ts.api.CreateMulticastQueueItem(context.Background(), &ns.CreateMulticastQueueItemRequest{
+				Item: &qi2,
 			})
 			assert.NoError(err)
 
-			listResp, err := ts.api.GetMulticastQueueItemsForMulticastGroup(context.Background(), &ns.GetMulticastQueueItemsForMulticastGroupRequest{
-				MulticastGroupId: mg.ID.Bytes(),
+			t.Run("List", func(t *testing.T) {
+				assert := require.New(t)
+
+				listResp, err := ts.api.GetMulticastQueueItemsForMulticastGroup(context.Background(), &ns.GetMulticastQueueItemsForMulticastGroupRequest{
+					MulticastGroupId: mg.ID.Bytes(),
+				})
+				assert.NoError(err)
+				assert.Len(listResp.Items, 2)
+
+				assert.EqualValues(10, listResp.Items[0].FCnt)
+				assert.EqualValues(11, listResp.Items[1].FCnt)
 			})
-			assert.NoError(err)
-			assert.Len(listResp.Items, 0)
+
+			t.Run("Test emit at duration", func(t *testing.T) {
+				assert := require.New(t)
+
+				items, err := storage.GetMulticastQueueItemsForMulticastGroup(ts.DB(), mg.ID)
+				assert.NoError(err)
+				assert.Len(items, 2)
+
+				afterTS := gps.Time(time.Now()).TimeSinceGPSEpoch()
+				afterTS += 5 * time.Second
+
+				qi1EmitAt, err := classb.GetNextPingSlotAfter(afterTS, mg.MCAddr, (1<<12)/mg.PingSlotPeriod)
+				assert.NoError(err)
+				assert.Equal(qi1EmitAt, *items[0].EmitAtTimeSinceGPSEpoch)
+
+				qi2EmitAt, err := classb.GetNextPingSlotAfter(qi1EmitAt, mg.MCAddr, (1<<12)/mg.PingSlotPeriod)
+				assert.NoError(err)
+				assert.Equal(qi2EmitAt, *items[1].EmitAtTimeSinceGPSEpoch)
+			})
 		})
 	})
+
+	ts.T().Run("Class-C", func(t *testing.T) {
+		assert := require.New(t)
+
+		mg := storage.MulticastGroup{
+			GroupType: storage.MulticastGroupC,
+		}
+		assert.NoError(storage.CreateMulticastGroup(ts.DB(), &mg))
+
+		ts.T().Run("Create", func(t *testing.T) {
+			assert := require.New(t)
+
+			qi1 := ns.MulticastQueueItem{
+				MulticastGroupId: mg.ID.Bytes(),
+				FCnt:             10,
+				FPort:            20,
+				FrmPayload:       []byte{1, 2, 3, 4},
+			}
+			qi2 := ns.MulticastQueueItem{
+				MulticastGroupId: mg.ID.Bytes(),
+				FCnt:             11,
+				FPort:            20,
+				FrmPayload:       []byte{1, 2, 3, 4},
+			}
+
+			_, err := ts.api.CreateMulticastQueueItem(context.Background(), &ns.CreateMulticastQueueItemRequest{
+				Item: &qi1,
+			})
+			assert.NoError(err)
+			_, err = ts.api.CreateMulticastQueueItem(context.Background(), &ns.CreateMulticastQueueItemRequest{
+				Item: &qi2,
+			})
+			assert.NoError(err)
+
+			t.Run("List", func(t *testing.T) {
+				assert := require.New(t)
+
+				listResp, err := ts.api.GetMulticastQueueItemsForMulticastGroup(context.Background(), &ns.GetMulticastQueueItemsForMulticastGroupRequest{
+					MulticastGroupId: mg.ID.Bytes(),
+				})
+				assert.NoError(err)
+				assert.Len(listResp.Items, 2)
+
+				assert.EqualValues(10, listResp.Items[0].FCnt)
+				assert.EqualValues(11, listResp.Items[1].FCnt)
+			})
+
+			t.Run("Delete", func(t *testing.T) {
+				assert := require.New(t)
+
+				_, err := ts.api.FlushMulticastQueueForMulticastGroup(context.Background(), &ns.FlushMulticastQueueForMulticastGroupRequest{
+					MulticastGroupId: mg.ID.Bytes(),
+				})
+				assert.NoError(err)
+
+				listResp, err := ts.api.GetMulticastQueueItemsForMulticastGroup(context.Background(), &ns.GetMulticastQueueItemsForMulticastGroupRequest{
+					MulticastGroupId: mg.ID.Bytes(),
+				})
+				assert.NoError(err)
+				assert.Len(listResp.Items, 0)
+			})
+		})
+	})
+
 }
 
 func (ts *NetworkServerAPITestSuite) TestDevice() {

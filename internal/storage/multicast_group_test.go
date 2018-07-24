@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/brocaar/lorawan"
@@ -35,7 +37,7 @@ func (ts *StorageTestSuite) TestMulticastGroup() {
 
 		t.Run("Get", func(t *testing.T) {
 			assert := require.New(t)
-			mcGet, err := GetMulticastGroup(ts.Tx(), mc.ID)
+			mcGet, err := GetMulticastGroup(ts.Tx(), mc.ID, false)
 			assert.Nil(err)
 
 			mcGet.CreatedAt = mcGet.CreatedAt.Round(time.Second).UTC()
@@ -58,7 +60,7 @@ func (ts *StorageTestSuite) TestMulticastGroup() {
 
 			mc.UpdatedAt = mc.UpdatedAt.Round(time.Second).UTC()
 
-			mcGet, err := GetMulticastGroup(ts.Tx(), mc.ID)
+			mcGet, err := GetMulticastGroup(ts.Tx(), mc.ID, false)
 			assert.Nil(err)
 
 			mcGet.CreatedAt = mcGet.CreatedAt.Round(time.Second).UTC()
@@ -73,7 +75,7 @@ func (ts *StorageTestSuite) TestMulticastGroup() {
 			assert.Nil(DeleteMulticastGroup(ts.Tx(), mc.ID))
 			assert.Equal(ErrDoesNotExist, DeleteMulticastGroup(ts.Tx(), mc.ID))
 
-			_, err := GetMulticastGroup(ts.Tx(), mc.ID)
+			_, err := GetMulticastGroup(ts.Tx(), mc.ID, false)
 			assert.Equal(ErrDoesNotExist, err)
 		})
 	})
@@ -88,18 +90,23 @@ func (ts *StorageTestSuite) TestMulticastQueue() {
 	ts.T().Run("Create", func(t *testing.T) {
 		assert := require.New(t)
 
+		gps1 := 100 * time.Second
+		gps2 := 110 * time.Second
+
 		qi1 := MulticastQueueItem{
-			MulticastGroupID: mg.ID,
-			FCnt:             10,
-			FPort:            20,
-			FRMPayload:       []byte{1, 2, 3, 4},
+			MulticastGroupID:        mg.ID,
+			FCnt:                    10,
+			FPort:                   20,
+			FRMPayload:              []byte{1, 2, 3, 4},
+			EmitAtTimeSinceGPSEpoch: &gps1,
 		}
 
 		qi2 := MulticastQueueItem{
-			MulticastGroupID: mg.ID,
-			FCnt:             11,
-			FPort:            20,
-			FRMPayload:       []byte{1, 2, 3, 4},
+			MulticastGroupID:        mg.ID,
+			FCnt:                    11,
+			FPort:                   20,
+			FRMPayload:              []byte{1, 2, 3, 4},
+			EmitAtTimeSinceGPSEpoch: &gps2,
 		}
 
 		assert.NoError(CreateMulticastQueueItem(ts.Tx(), &qi1))
@@ -114,6 +121,23 @@ func (ts *StorageTestSuite) TestMulticastQueue() {
 
 			assert.EqualValues(items[0].FCnt, 10)
 			assert.EqualValues(items[1].FCnt, 11)
+		})
+
+		t.Run("Next queue item", func(t *testing.T) {
+			assert := require.New(t)
+
+			nqi, err := GetNextMulticastQueueItemForMulticastGroup(ts.Tx(), mg.ID)
+			assert.NoError(err)
+
+			assert.Equal(qi1.FCnt, nqi.FCnt)
+		})
+
+		t.Run("Max emit at", func(t *testing.T) {
+			assert := require.New(t)
+
+			d, err := GetMaxEmitAtTimeSinceGPSEpochForMulticastGroup(ts.Tx(), mg.ID)
+			assert.NoError(err)
+			assert.Equal(gps2, d)
 		})
 
 		t.Run("Delete", func(t *testing.T) {
@@ -133,5 +157,42 @@ func (ts *StorageTestSuite) TestMulticastQueue() {
 			assert.NoError(err)
 			assert.Len(items, 0)
 		})
+	})
+}
+
+func (ts *StorageTestSuite) TestGetMulticastGroupsWithQueueItems() {
+	assert := require.New(ts.T())
+
+	mg1 := ts.GetMulticastGroup()
+	mg1.GroupType = MulticastGroupC
+	assert.NoError(CreateMulticastGroup(ts.DB(), &mg1))
+	mg2 := ts.GetMulticastGroup()
+	mg2.GroupType = MulticastGroupC
+	assert.NoError(CreateMulticastGroup(ts.DB(), &mg2))
+
+	qi1 := MulticastQueueItem{
+		MulticastGroupID: mg1.ID,
+		FCnt:             10,
+		FPort:            20,
+		FRMPayload:       []byte{1, 2, 3, 4},
+	}
+
+	assert.NoError(CreateMulticastQueueItem(ts.DB(), &qi1))
+
+	Transaction(ts.DB(), func(tx sqlx.Ext) error {
+		groups, err := GetMulticastGroupsWithQueueItems(tx, 10)
+		assert.NoError(err)
+		assert.Len(groups, 1)
+
+		// new transaction must return 0 items as the first one did lock
+		// the multicast-group
+		Transaction(ts.DB(), func(tx sqlx.Ext) error {
+			groups, err := GetMulticastGroupsWithQueueItems(tx, 10)
+			assert.NoError(err)
+			assert.Len(groups, 0)
+			return nil
+		})
+
+		return nil
 	})
 }

@@ -346,7 +346,7 @@ func startStatsServer(gwStats *gateway.StatsHandler) func() error {
 
 func startQueueScheduler() error {
 	log.Info("starting downlink device-queue scheduler")
-	go downlink.SchedulerLoop()
+	go downlink.BCSchedulerLoop()
 	return nil
 }
 

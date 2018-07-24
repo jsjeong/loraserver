@@ -26,11 +26,16 @@ create table multicast_queue (
     created_at timestamp with time zone not null,
     f_port int not null,
     frm_payload bytea,
+    emit_at_time_since_gps_epoch bigint,
 
     primary key(multicast_group_id, f_cnt)
 );
 
+create index idx_multicast_queue_emit_at_time_since_gps_epoch on multicast_queue(emit_at_time_since_gps_epoch);
+
 -- +migrate Down
+drop index idx_multicast_queue_emit_at_time_since_gps_epoch;
+
 drop table multicast_queue;
 
 drop table device_multicast_group;

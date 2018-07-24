@@ -9,6 +9,8 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/brocaar/loraserver/internal/config"
+	"github.com/brocaar/loraserver/internal/gps"
 	"github.com/brocaar/lorawan"
 )
 
@@ -37,11 +39,12 @@ type MulticastGroup struct {
 
 // MulticastQueueItem defines a multicast queue-item.
 type MulticastQueueItem struct {
-	MulticastGroupID uuid.UUID `db:"multicast_group_id"`
-	FCnt             uint32    `db:"f_cnt"`
-	CreatedAt        time.Time `db:"created_at"`
-	FPort            uint8     `db:"f_port"`
-	FRMPayload       []byte    `db:"frm_payload"`
+	MulticastGroupID        uuid.UUID      `db:"multicast_group_id"`
+	FCnt                    uint32         `db:"f_cnt"`
+	CreatedAt               time.Time      `db:"created_at"`
+	FPort                   uint8          `db:"f_port"`
+	FRMPayload              []byte         `db:"frm_payload"`
+	EmitAtTimeSinceGPSEpoch *time.Duration `db:"emit_at_time_since_gps_epoch"`
 }
 
 // Validate validates the MulticastQueueItem.
@@ -98,15 +101,21 @@ func CreateMulticastGroup(db sqlx.Execer, mg *MulticastGroup) error {
 }
 
 // GetMulticastGroup returns the multicast-group for the given ID.
-func GetMulticastGroup(db sqlx.Queryer, id uuid.UUID) (MulticastGroup, error) {
+func GetMulticastGroup(db sqlx.Queryer, id uuid.UUID, forUpdate bool) (MulticastGroup, error) {
 	var mg MulticastGroup
+	var fu string
+
+	if forUpdate {
+		fu = " for update"
+	}
+
 	err := sqlx.Get(db, &mg, `
 		select
 			*
 		from
 			multicast_group
 		where
-			id = $1`,
+			id = $1`+fu,
 		id,
 	)
 	if err != nil {
@@ -203,14 +212,16 @@ func CreateMulticastQueueItem(db sqlx.Execer, qi *MulticastQueueItem) error {
 			multicast_group_id,
 			f_cnt,
 			f_port,
-			frm_payload
-		) values ($1, $2, $3, $4, $5)
+			frm_payload,
+			emit_at_time_since_gps_epoch
+		) values ($1, $2, $3, $4, $5, $6)
 		`,
 		qi.CreatedAt,
 		qi.MulticastGroupID,
 		qi.FCnt,
 		qi.FPort,
 		qi.FRMPayload,
+		qi.EmitAtTimeSinceGPSEpoch,
 	)
 	if err != nil {
 		return handlePSQLError(err, "insert error")
@@ -299,4 +310,82 @@ func GetMulticastQueueItemsForMulticastGroup(db sqlx.Queryer, multicastGroupID u
 	}
 
 	return items, nil
+}
+
+// GetMulticastGroupsWithQueueItems returns a slice of multicast-groups that
+// contain queue items.
+// The multicast-group records will be locked for update so that multiple
+// instnaces can run this query in parallel without the rist of duplicate
+// scheduling.
+func GetMulticastGroupsWithQueueItems(db sqlx.Ext, count int) ([]MulticastGroup, error) {
+	gpsEpochScheduleTime := gps.Time(time.Now().Add(config.SchedulerInterval * 2)).TimeSinceGPSEpoch()
+
+	var multicastGroups []MulticastGroup
+	err := sqlx.Select(db, &multicastGroups, `
+		select
+			mg.*
+		from multicast_group mg
+		where exists (
+			select
+				1
+			from
+				multicast_queue mq
+			where
+				mq.multicast_group_id = mg.id
+				and (
+					mg.group_type = 'C'
+					or (
+						mg.group_type = 'B'
+						and mq.emit_at_time_since_gps_epoch <= $2
+					)
+				)
+		)
+		limit $1
+		for update of mg skip locked
+	`, count, gpsEpochScheduleTime)
+	if err != nil {
+		return nil, handlePSQLError(err, "select error")
+	}
+	return multicastGroups, nil
+}
+
+// GetNextMulticastQueueItemForMulticastGroup returns the next muticast
+// queue-item given a multicast-group.
+func GetNextMulticastQueueItemForMulticastGroup(db sqlx.Queryer, multicastGroupID uuid.UUID) (MulticastQueueItem, error) {
+	var qi MulticastQueueItem
+	err := sqlx.Get(db, &qi, `
+		select
+			*
+		from
+			multicast_queue
+		where
+			multicast_group_id = $1
+		order by
+			f_cnt
+		limit 1
+	`, multicastGroupID)
+	if err != nil {
+		return qi, handlePSQLError(err, "select error")
+	}
+
+	return qi, nil
+}
+
+// GetMaxEmitAtTimeSinceGPSEpochForMulticastGroup returns the maximum / last GPS
+// epoch scheduling timestamp for the given multicast-group.
+func GetMaxEmitAtTimeSinceGPSEpochForMulticastGroup(db sqlx.Queryer, multicastGroupID uuid.UUID) (time.Duration, error) {
+	var timeSinceGPSEpoch time.Duration
+	err := sqlx.Get(db, &timeSinceGPSEpoch, `
+		select
+			coalesce(max(emit_at_time_since_gps_epoch), 0)
+		from
+			multicast_queue
+		where
+			multicast_group_id = $1
+	`, multicastGroupID)
+	if err != nil {
+		return 0, handlePSQLError(err, "select error")
+	}
+
+	return timeSinceGPSEpoch, nil
 }
