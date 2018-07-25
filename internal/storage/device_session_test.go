@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	. "github.com/smartystreets/goconvey/convey"
 
 	"github.com/brocaar/loraserver/internal/common"
@@ -324,49 +326,56 @@ func TestGetDeviceSessionForPHYPayload(t *testing.T) {
 	})
 }
 
-func TestDeviceGatewayRXInfoSet(t *testing.T) {
-	conf := test.GetConfig()
+func (ts *StorageTestSuite) TestDeviceGatewayRXInfoSet() {
+	devEUI := lorawan.EUI64{1, 2, 3, 4, 5, 6, 7, 8}
 
-	Convey("Given a clean database", t, func() {
-		p := common.NewRedisPool(conf.RedisURL)
-		test.MustFlushRedis(p)
+	ts.T().Run("Does not exist", func(t *testing.T) {
+		assert := require.New(t)
 
-		devEUI := lorawan.EUI64{1, 2, 3, 4, 5, 6, 7, 8}
+		_, err := GetDeviceGatewayRXInfoSet(ts.RedisPool(), devEUI)
+		assert.Equal(ErrDoesNotExist, err)
 
-		Convey("GetDeviceGatewayRXInfoSet for a non-existing device returns the expected error", func() {
-			_, err := GetDeviceGatewayRXInfoSet(p, devEUI)
-			So(err, ShouldEqual, ErrDoesNotExist)
+		sets, err := GetDeviceGatewayRXInfoSetForDevEUIs(ts.RedisPool(), []lorawan.EUI64{devEUI})
+		assert.NoError(err)
+		assert.Len(sets, 0)
+	})
+
+	ts.T().Run("Create", func(t *testing.T) {
+		assert := require.New(t)
+
+		rxInfoSet := DeviceGatewayRXInfoSet{
+			DevEUI: devEUI,
+			Items: []DeviceGatewayRXInfo{
+				{
+					GatewayID: lorawan.EUI64{2, 2, 3, 4, 5, 6, 7, 8},
+					DR:        3,
+					RSSI:      -60,
+					LoRaSNR:   5.5,
+				},
+			},
+		}
+		assert.NoError(SaveDeviceGatewayRXInfoSet(ts.RedisPool(), rxInfoSet))
+
+		t.Run("Get", func(t *testing.T) {
+			assert := require.New(t)
+
+			rxInfoSetGet, err := GetDeviceGatewayRXInfoSet(ts.RedisPool(), devEUI)
+			assert.NoError(err)
+			assert.Equal(rxInfoSet, rxInfoSetGet)
+
+			rxInfoSets, err := GetDeviceGatewayRXInfoSetForDevEUIs(ts.RedisPool(), []lorawan.EUI64{devEUI})
+			assert.NoError(err)
+			assert.Len(rxInfoSets, 1)
+			assert.Equal(rxInfoSet, rxInfoSets[0])
 		})
 
-		Convey("When creating a DeviceGatewayRXInfoSet", func() {
-			rxInfoSet := DeviceGatewayRXInfoSet{
-				Items: []DeviceGatewayRXInfo{
-					{
-						GatewayID: lorawan.EUI64{2, 2, 3, 4, 5, 6, 7, 8},
-						RSSI:      -60,
-						LoRaSNR:   5.5,
-					},
-				},
-			}
+		t.Run("Delete", func(t *testing.T) {
+			assert := require.New(t)
 
-			So(SaveDeviceGatewayRXInfoSet(p, devEUI, rxInfoSet), ShouldBeNil)
-
-			Convey("Then retrieving it returns the same object", func() {
-				rxInfoSetGet, err := GetDeviceGatewayRXInfoSet(p, devEUI)
-				So(err, ShouldBeNil)
-				So(rxInfoSetGet, ShouldResemble, rxInfoSet)
-			})
-
-			Convey("When deleting the object", func() {
-				So(DeleteDeviceGatewayRXInfoSet(p, devEUI), ShouldBeNil)
-
-				Convey("Then the object has been removed", func() {
-					_, err := GetDeviceGatewayRXInfoSet(p, devEUI)
-					So(err, ShouldEqual, ErrDoesNotExist)
-
-					So(DeleteDeviceGatewayRXInfoSet(p, devEUI), ShouldEqual, ErrDoesNotExist)
-				})
-			})
+			assert.NoError(DeleteDeviceGatewayRXInfoSet(ts.RedisPool(), devEUI))
+			_, err := GetDeviceGatewayRXInfoSet(ts.RedisPool(), devEUI)
+			assert.Equal(ErrDoesNotExist, err)
+			assert.Equal(ErrDoesNotExist, DeleteDeviceGatewayRXInfoSet(ts.RedisPool(), devEUI))
 		})
 	})
 }

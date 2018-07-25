@@ -43,7 +43,9 @@ const (
 // DeviceGatewayRXInfoSet contains the rx-info set of the receiving gateways
 // for the last uplink.
 type DeviceGatewayRXInfoSet struct {
-	Items []DeviceGatewayRXInfo
+	DevEUI lorawan.EUI64
+	DR     int
+	Items  []DeviceGatewayRXInfo
 }
 
 // DeviceGatewayRXInfo holds the meta-data of a gateway receiving the last
@@ -505,7 +507,7 @@ func DeviceSessionExists(p *redis.Pool, devEUI lorawan.EUI64) (bool, error) {
 }
 
 // SaveDeviceGatewayRXInfoSet saves the given DeviceGatewayRXInfoSet.
-func SaveDeviceGatewayRXInfoSet(p *redis.Pool, devEUI lorawan.EUI64, rxInfoSet DeviceGatewayRXInfoSet) error {
+func SaveDeviceGatewayRXInfoSet(p *redis.Pool, rxInfoSet DeviceGatewayRXInfoSet) error {
 	rxInfoSetPB := deviceGatewayRXInfoSetToPB(rxInfoSet)
 	b, err := proto.Marshal(&rxInfoSetPB)
 	if err != nil {
@@ -515,13 +517,13 @@ func SaveDeviceGatewayRXInfoSet(p *redis.Pool, devEUI lorawan.EUI64, rxInfoSet D
 	c := p.Get()
 	defer c.Close()
 	exp := int64(config.C.NetworkServer.DeviceSessionTTL / time.Millisecond)
-	_, err = c.Do("PSETEX", fmt.Sprintf(deviceGatewayRXInfoSetKeyTempl, devEUI), exp, b)
+	_, err = c.Do("PSETEX", fmt.Sprintf(deviceGatewayRXInfoSetKeyTempl, rxInfoSet.DevEUI), exp, b)
 	if err != nil {
 		return errors.Wrap(err, "psetex error")
 	}
 
 	log.WithFields(log.Fields{
-		"dev_eui": devEUI,
+		"dev_eui": rxInfoSet.DevEUI,
 	}).Info("device gateway rx-info meta-data saved")
 
 	return nil
@@ -567,6 +569,40 @@ func GetDeviceGatewayRXInfoSet(p *redis.Pool, devEUI lorawan.EUI64) (DeviceGatew
 	}
 
 	return deviceGatewayRXInfoSetFromPB(rxInfoSetPB), nil
+}
+
+// GetDeviceGatewayRXInfoSetForDevEUIs returns the DeviceGatewayRXInfoSet
+// objects for the given Device EUIs.
+func GetDeviceGatewayRXInfoSetForDevEUIs(p *redis.Pool, devEUIs []lorawan.EUI64) ([]DeviceGatewayRXInfoSet, error) {
+	var keys []interface{}
+	for _, d := range devEUIs {
+		keys = append(keys, fmt.Sprintf(deviceGatewayRXInfoSetKeyTempl, d))
+	}
+
+	c := p.Get()
+	defer c.Close()
+
+	bs, err := redis.ByteSlices(c.Do("MGET", keys...))
+	if err != nil {
+		return nil, errors.Wrap(err, "get byte slices error")
+	}
+
+	var out []DeviceGatewayRXInfoSet
+	for _, b := range bs {
+		if len(b) == 0 {
+			continue
+		}
+
+		var rxInfoSetPB DeviceGatewayRXInfoSetPB
+		if err = proto.Unmarshal(b, &rxInfoSetPB); err != nil {
+			log.WithError(err).Error("protobuf unmarshal error")
+			continue
+		}
+
+		out = append(out, deviceGatewayRXInfoSetFromPB(rxInfoSetPB))
+	}
+
+	return out, nil
 }
 
 func deviceSessionToPB(d DeviceSession) DeviceSessionPB {
@@ -785,7 +821,11 @@ func deviceSessionFromPB(d DeviceSessionPB) DeviceSession {
 }
 
 func deviceGatewayRXInfoSetToPB(d DeviceGatewayRXInfoSet) DeviceGatewayRXInfoSetPB {
-	var out DeviceGatewayRXInfoSetPB
+	out := DeviceGatewayRXInfoSetPB{
+		DevEui: d.DevEUI[:],
+		Dr:     uint32(d.DR),
+	}
+
 	for i := range d.Items {
 		out.Items = append(out.Items, &DeviceGatewayRXInfoPB{
 			GatewayId: d.Items[i].GatewayID[:],
@@ -798,7 +838,10 @@ func deviceGatewayRXInfoSetToPB(d DeviceGatewayRXInfoSet) DeviceGatewayRXInfoSet
 }
 
 func deviceGatewayRXInfoSetFromPB(d DeviceGatewayRXInfoSetPB) DeviceGatewayRXInfoSet {
-	var out DeviceGatewayRXInfoSet
+	out := DeviceGatewayRXInfoSet{
+		DR: int(d.Dr),
+	}
+	copy(out.DevEUI[:], d.DevEui)
 
 	for i := range d.Items {
 		var id lorawan.EUI64

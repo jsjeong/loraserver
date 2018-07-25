@@ -181,8 +181,14 @@ message DeviceSessionPB {
 
 
 message DeviceGatewayRXInfoSetPB {
+    // Device EUI.
+    bytes dev_eui = 1;
+
+    // Data-rate.
+    uint32 dr = 2;
+
     // Items contains set items.
-    repeated DeviceGatewayRXInfoPB items = 1;
+    repeated DeviceGatewayRXInfoPB items = 3;
 }
 
 message DeviceGatewayRXInfoPB {

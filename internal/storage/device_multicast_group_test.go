@@ -47,6 +47,15 @@ func (ts *StorageTestSuite) TestDeviceMulticastGroup() {
 			assert.Equal([]uuid.UUID{mg.ID}, groups)
 		})
 
+		t.Run("Get DevEUIs for multicast-group", func(t *testing.T) {
+			assert := require.New(t)
+
+			devEUIs, err := GetDevEUIsForMulticastGroup(ts.Tx(), mg.ID)
+			assert.NoError(err)
+			assert.Len(devEUIs, 1)
+			assert.Equal(d.DevEUI, devEUIs[0])
+		})
+
 		t.Run("Remove", func(t *testing.T) {
 			assert := require.New(t)
 

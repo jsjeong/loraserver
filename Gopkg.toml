@@ -78,3 +78,7 @@
 [[constraint]]
   name = "github.com/stretchr/testify"
   version = "1.2.2"
+
+[[constraint]]
+  name = 'gonum.org/v1/gonum'
+  branch = "master"

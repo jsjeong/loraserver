@@ -83,3 +83,23 @@ func GetMulticastGroupsForDevEUI(db sqlx.Queryer, devEUI lorawan.EUI64) ([]uuid.
 
 	return out, nil
 }
+
+// GetDevEUIsForMulticastGroup returns all Device EUIs within the given
+// multicast-group id.
+func GetDevEUIsForMulticastGroup(db sqlx.Queryer, multicastGroupID uuid.UUID) ([]lorawan.EUI64, error) {
+	var out []lorawan.EUI64
+
+	err := sqlx.Select(db, &out, `
+		select
+			dev_eui
+		from
+			device_multicast_group
+		where
+			multicast_group_id = $1
+	`, multicastGroupID)
+	if err != nil {
+		return nil, handlePSQLError(err, "select error")
+	}
+
+	return out, nil
+}

@@ -439,7 +439,7 @@ func TestClassBDownlink(t *testing.T) {
 					So(storage.CreateDeviceQueueItem(config.C.PostgreSQL.DB, &qi), ShouldBeNil)
 				}
 
-				So(downlink.ScheduleBCBatch(1), ShouldBeNil)
+				So(downlink.ScheduleDeviceQueueBatch(1), ShouldBeNil)
 
 				Convey("Then the frame-counters are as expected", func() {
 					sess, err := storage.GetDeviceSession(config.C.Redis.Pool, t.DeviceSession.DevEUI)

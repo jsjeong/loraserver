@@ -35,7 +35,7 @@ func (m *DeviceSessionPBChannel) Reset()         { *m = DeviceSessionPBChannel{}
 func (m *DeviceSessionPBChannel) String() string { return proto.CompactTextString(m) }
 func (*DeviceSessionPBChannel) ProtoMessage()    {}
 func (*DeviceSessionPBChannel) Descriptor() ([]byte, []int) {
-	return fileDescriptor_device_session_7832d331f032d242, []int{0}
+	return fileDescriptor_device_session_88c1f7a2fd7bf38b, []int{0}
 }
 func (m *DeviceSessionPBChannel) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeviceSessionPBChannel.Unmarshal(m, b)
@@ -94,7 +94,7 @@ func (m *DeviceSessionPBUplinkADRHistory) Reset()         { *m = DeviceSessionPB
 func (m *DeviceSessionPBUplinkADRHistory) String() string { return proto.CompactTextString(m) }
 func (*DeviceSessionPBUplinkADRHistory) ProtoMessage()    {}
 func (*DeviceSessionPBUplinkADRHistory) Descriptor() ([]byte, []int) {
-	return fileDescriptor_device_session_7832d331f032d242, []int{1}
+	return fileDescriptor_device_session_88c1f7a2fd7bf38b, []int{1}
 }
 func (m *DeviceSessionPBUplinkADRHistory) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeviceSessionPBUplinkADRHistory.Unmarshal(m, b)
@@ -152,7 +152,7 @@ func (m *DeviceSessionPBUplinkGatewayHistory) Reset()         { *m = DeviceSessi
 func (m *DeviceSessionPBUplinkGatewayHistory) String() string { return proto.CompactTextString(m) }
 func (*DeviceSessionPBUplinkGatewayHistory) ProtoMessage()    {}
 func (*DeviceSessionPBUplinkGatewayHistory) Descriptor() ([]byte, []int) {
-	return fileDescriptor_device_session_7832d331f032d242, []int{2}
+	return fileDescriptor_device_session_88c1f7a2fd7bf38b, []int{2}
 }
 func (m *DeviceSessionPBUplinkGatewayHistory) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeviceSessionPBUplinkGatewayHistory.Unmarshal(m, b)
@@ -284,7 +284,7 @@ func (m *DeviceSessionPB) Reset()         { *m = DeviceSessionPB{} }
 func (m *DeviceSessionPB) String() string { return proto.CompactTextString(m) }
 func (*DeviceSessionPB) ProtoMessage()    {}
 func (*DeviceSessionPB) Descriptor() ([]byte, []int) {
-	return fileDescriptor_device_session_7832d331f032d242, []int{3}
+	return fileDescriptor_device_session_88c1f7a2fd7bf38b, []int{3}
 }
 func (m *DeviceSessionPB) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeviceSessionPB.Unmarshal(m, b)
@@ -606,8 +606,12 @@ func (m *DeviceSessionPB) GetPendingRejoinDeviceSession() []byte {
 }
 
 type DeviceGatewayRXInfoSetPB struct {
+	// Device EUI.
+	DevEui []byte `protobuf:"bytes,1,opt,name=dev_eui,json=devEui,proto3" json:"dev_eui,omitempty"`
+	// Data-rate.
+	Dr uint32 `protobuf:"varint,2,opt,name=dr,proto3" json:"dr,omitempty"`
 	// Items contains set items.
-	Items                []*DeviceGatewayRXInfoPB `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	Items                []*DeviceGatewayRXInfoPB `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -617,7 +621,7 @@ func (m *DeviceGatewayRXInfoSetPB) Reset()         { *m = DeviceGatewayRXInfoSet
 func (m *DeviceGatewayRXInfoSetPB) String() string { return proto.CompactTextString(m) }
 func (*DeviceGatewayRXInfoSetPB) ProtoMessage()    {}
 func (*DeviceGatewayRXInfoSetPB) Descriptor() ([]byte, []int) {
-	return fileDescriptor_device_session_7832d331f032d242, []int{4}
+	return fileDescriptor_device_session_88c1f7a2fd7bf38b, []int{4}
 }
 func (m *DeviceGatewayRXInfoSetPB) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeviceGatewayRXInfoSetPB.Unmarshal(m, b)
@@ -636,6 +640,20 @@ func (m *DeviceGatewayRXInfoSetPB) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_DeviceGatewayRXInfoSetPB proto.InternalMessageInfo
+
+func (m *DeviceGatewayRXInfoSetPB) GetDevEui() []byte {
+	if m != nil {
+		return m.DevEui
+	}
+	return nil
+}
+
+func (m *DeviceGatewayRXInfoSetPB) GetDr() uint32 {
+	if m != nil {
+		return m.Dr
+	}
+	return 0
+}
 
 func (m *DeviceGatewayRXInfoSetPB) GetItems() []*DeviceGatewayRXInfoPB {
 	if m != nil {
@@ -660,7 +678,7 @@ func (m *DeviceGatewayRXInfoPB) Reset()         { *m = DeviceGatewayRXInfoPB{} }
 func (m *DeviceGatewayRXInfoPB) String() string { return proto.CompactTextString(m) }
 func (*DeviceGatewayRXInfoPB) ProtoMessage()    {}
 func (*DeviceGatewayRXInfoPB) Descriptor() ([]byte, []int) {
-	return fileDescriptor_device_session_7832d331f032d242, []int{5}
+	return fileDescriptor_device_session_88c1f7a2fd7bf38b, []int{5}
 }
 func (m *DeviceGatewayRXInfoPB) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeviceGatewayRXInfoPB.Unmarshal(m, b)
@@ -713,11 +731,11 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("device_session.proto", fileDescriptor_device_session_7832d331f032d242)
+	proto.RegisterFile("device_session.proto", fileDescriptor_device_session_88c1f7a2fd7bf38b)
 }
 
-var fileDescriptor_device_session_7832d331f032d242 = []byte{
-	// 1275 bytes of a gzipped FileDescriptorProto
+var fileDescriptor_device_session_88c1f7a2fd7bf38b = []byte{
+	// 1287 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x56, 0x5b, 0x53, 0x1b, 0x37,
 	0x14, 0x1e, 0x43, 0xb8, 0x1d, 0x30, 0x17, 0x71, 0x89, 0xa0, 0x50, 0x1c, 0x93, 0x34, 0x6e, 0x9a,
 	0x42, 0xe2, 0x26, 0x9d, 0x4c, 0x1e, 0x3a, 0x05, 0x4c, 0x5a, 0x26, 0x2d, 0x65, 0xd6, 0x24, 0xd3,
@@ -791,11 +809,12 @@ var fileDescriptor_device_session_7832d331f032d242 = []byte{
 	0xa3, 0x6d, 0xcb, 0xb3, 0x37, 0x94, 0x7b, 0x80, 0xd8, 0xbf, 0xe4, 0x2d, 0xcc, 0x75, 0x79, 0x3b,
 	0x93, 0x78, 0x4f, 0x2f, 0x57, 0x0f, 0x1f, 0x32, 0x8d, 0xd7, 0x09, 0x1c, 0xfb, 0xfd, 0xcc, 0xbb,
 	0xc2, 0x5e, 0x06, 0xbb, 0x0f, 0x3a, 0x69, 0xb4, 0xd2, 0x92, 0xab, 0x74, 0x36, 0x5e, 0xe9, 0xe5,
-	0xff, 0x5b, 0x7f, 0x5c, 0x73, 0xa4, 0x6c, 0xf9, 0x1a, 0xa8, 0xcb, 0xf0, 0x94, 0xe0, 0xcf, 0x4b,
-	0xd5, 0x8c, 0xeb, 0xd2, 0x5c, 0x9f, 0x91, 0x37, 0x30, 0x17, 0x19, 0xd9, 0x49, 0x69, 0x01, 0x5b,
-	0xc0, 0xd7, 0x13, 0x35, 0xc6, 0x32, 0xae, 0xcf, 0x02, 0x47, 0x2e, 0x4b, 0xd8, 0x9e, 0x8a, 0x93,
-	0x03, 0x80, 0x41, 0x6f, 0xf1, 0xcf, 0x9e, 0x95, 0x60, 0xc9, 0x47, 0x2e, 0x05, 0x21, 0xf0, 0x48,
-	0xa7, 0x69, 0x84, 0x13, 0x9a, 0x0b, 0xf0, 0xbf, 0x6d, 0xec, 0xf6, 0x51, 0x8a, 0x0f, 0x3a, 0xfb,
-	0x98, 0x29, 0x04, 0x0b, 0xf6, 0xbb, 0xae, 0x74, 0x63, 0x1e, 0x1f, 0xa4, 0x3f, 0xfc, 0x17, 0x00,
-	0x00, 0xff, 0xff, 0xbc, 0x17, 0xd9, 0xd2, 0xe8, 0x0a, 0x00, 0x00,
+	0xff, 0x5b, 0x7f, 0x5c, 0x73, 0xa4, 0x6c, 0xb9, 0x0f, 0xd4, 0x65, 0x78, 0x4a, 0xf0, 0xe7, 0xa5,
+	0x6a, 0xc6, 0x75, 0x69, 0xae, 0xcf, 0x46, 0xdf, 0x02, 0x85, 0xb1, 0xb7, 0x80, 0xeb, 0xfd, 0x33,
+	0xf7, 0xbd, 0xff, 0x0d, 0xcc, 0x45, 0x46, 0x76, 0x52, 0x3a, 0x8b, 0xbd, 0xe2, 0xeb, 0x89, 0xc1,
+	0x8c, 0x49, 0x5f, 0x9f, 0x05, 0x8e, 0x5c, 0x96, 0xb0, 0x3d, 0x15, 0x27, 0x07, 0x00, 0x83, 0x26,
+	0xe4, 0xdf, 0x47, 0x2b, 0xc1, 0x92, 0x8f, 0x5c, 0x0a, 0x42, 0xe0, 0x91, 0x4e, 0xd3, 0x08, 0xeb,
+	0xcf, 0x05, 0xf8, 0xdf, 0xde, 0x00, 0xf6, 0xf5, 0x8a, 0x2f, 0x3f, 0xfb, 0xea, 0x29, 0x04, 0x0b,
+	0xf6, 0xbb, 0xae, 0x74, 0x63, 0x1e, 0x5f, 0xae, 0x3f, 0xfc, 0x17, 0x00, 0x00, 0xff, 0xff, 0xcd,
+	0xf7, 0xa1, 0x01, 0x11, 0x0b, 0x00, 0x00,
 }

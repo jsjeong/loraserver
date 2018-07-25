@@ -201,7 +201,15 @@ func appendMetaDataToUplinkHistory(ctx *dataContext) error {
 }
 
 func storeDeviceGatewayRXInfoSet(ctx *dataContext) error {
-	var rxInfoSet storage.DeviceGatewayRXInfoSet
+	dr, err := config.C.NetworkServer.Band.Band.GetDataRateIndex(true, ctx.RXPacket.TXInfo.DataRate)
+	if err != nil {
+		errors.Wrap(err, "get data-rate error")
+	}
+
+	rxInfoSet := storage.DeviceGatewayRXInfoSet{
+		DevEUI: ctx.DeviceSession.DevEUI,
+		DR:     dr,
+	}
 
 	for i := range ctx.RXPacket.RXInfoSet {
 		rxInfoSet.Items = append(rxInfoSet.Items, storage.DeviceGatewayRXInfo{
@@ -211,7 +219,7 @@ func storeDeviceGatewayRXInfoSet(ctx *dataContext) error {
 		})
 	}
 
-	err := storage.SaveDeviceGatewayRXInfoSet(config.C.Redis.Pool, ctx.DeviceSession.DevEUI, rxInfoSet)
+	err = storage.SaveDeviceGatewayRXInfoSet(config.C.Redis.Pool, rxInfoSet)
 	if err != nil {
 		return errors.Wrap(err, "save device gateway rx-info set error")
 	}
