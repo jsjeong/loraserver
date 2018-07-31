@@ -21,20 +21,26 @@ create table device_multicast_group (
 );
 
 create table multicast_queue (
-    multicast_group_id uuid not null references multicast_group,
-    f_cnt int not null,
+    id bigserial primary key,
     created_at timestamp with time zone not null,
-    f_port int not null,
-    frm_payload bytea,
+    schedule_at timestamp with time zone not null,
     emit_at_time_since_gps_epoch bigint,
-
-    primary key(multicast_group_id, f_cnt)
+    multicast_group_id uuid not null references multicast_group on delete cascade,
+    gateway_id bytea not null references gateway on delete cascade,
+    f_cnt int not null,
+    f_port int not null,
+    frm_payload bytea
 );
 
+create index idx_multicast_queue_schedule_at on multicast_queue(schedule_at);
+create index idx_multicast_queue_multicast_group_id on multicast_queue(multicast_group_id);
 create index idx_multicast_queue_emit_at_time_since_gps_epoch on multicast_queue(emit_at_time_since_gps_epoch);
+
 
 -- +migrate Down
 drop index idx_multicast_queue_emit_at_time_since_gps_epoch;
+drop index idx_multicast_queue_multicast_group_id;
+drop index idx_multicast_queue_schedule_at;
 
 drop table multicast_queue;
 

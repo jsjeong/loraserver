@@ -5,12 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/brocaar/loraserver/internal/downlink/data/classb"
-
-	"github.com/brocaar/loraserver/internal/gps"
-	"github.com/brocaar/loraserver/internal/storage"
-	"github.com/brocaar/lorawan"
-
 	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -18,7 +12,12 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"github.com/brocaar/loraserver/api/ns"
+	"github.com/brocaar/loraserver/internal/config"
+	"github.com/brocaar/loraserver/internal/downlink/data/classb"
+	"github.com/brocaar/loraserver/internal/gps"
+	"github.com/brocaar/loraserver/internal/storage"
 	"github.com/brocaar/loraserver/internal/test"
+	"github.com/brocaar/lorawan"
 )
 
 type NetworkServerAPITestSuite struct {
@@ -116,6 +115,57 @@ func (ts *NetworkServerAPITestSuite) TestMulticastGroup() {
 }
 
 func (ts *NetworkServerAPITestSuite) TestMulticastQueue() {
+	assert := require.New(ts.T())
+
+	gateways := []storage.Gateway{
+		{
+			MAC: lorawan.EUI64{1, 1, 1, 1, 1, 1, 1, 1},
+		},
+		{
+			MAC: lorawan.EUI64{1, 1, 1, 1, 1, 1, 1, 2},
+		},
+	}
+	for i := range gateways {
+		assert.NoError(storage.CreateGateway(ts.DB(), &gateways[i]))
+	}
+
+	var rp storage.RoutingProfile
+	var sp storage.ServiceProfile
+	var dp storage.DeviceProfile
+
+	assert.NoError(storage.CreateRoutingProfile(ts.DB(), &rp))
+	assert.NoError(storage.CreateServiceProfile(ts.DB(), &sp))
+	assert.NoError(storage.CreateDeviceProfile(ts.DB(), &dp))
+
+	devices := []storage.Device{
+		{
+			DevEUI:           lorawan.EUI64{2, 2, 2, 2, 2, 2, 2, 1},
+			RoutingProfileID: rp.ID,
+			ServiceProfileID: sp.ID,
+			DeviceProfileID:  dp.ID,
+		},
+		{
+			DevEUI:           lorawan.EUI64{2, 2, 2, 2, 2, 2, 2, 2},
+			RoutingProfileID: rp.ID,
+			ServiceProfileID: sp.ID,
+			DeviceProfileID:  dp.ID,
+		},
+	}
+	for i := range devices {
+		assert.NoError(storage.CreateDevice(ts.DB(), &devices[i]))
+		assert.NoError(storage.SaveDeviceGatewayRXInfoSet(ts.RedisPool(), storage.DeviceGatewayRXInfoSet{
+			DevEUI: devices[i].DevEUI,
+			DR:     3,
+			Items: []storage.DeviceGatewayRXInfo{
+				{
+					GatewayID: gateways[i].MAC,
+					RSSI:      50,
+					LoRaSNR:   5,
+				},
+			},
+		}))
+	}
+
 	ts.T().Run("Class-B", func(t *testing.T) {
 		assert := require.New(t)
 
@@ -125,6 +175,10 @@ func (ts *NetworkServerAPITestSuite) TestMulticastQueue() {
 			PingSlotPeriod: 32 * 128, // every 128 seconds
 		}
 		assert.NoError(storage.CreateMulticastGroup(ts.DB(), &mg))
+
+		for _, d := range devices {
+			assert.NoError(storage.AddDeviceToMulticastGroup(ts.DB(), d.DevEUI, mg.ID))
+		}
 
 		ts.T().Run("Create", func(t *testing.T) {
 			assert := require.New(t)
@@ -142,11 +196,11 @@ func (ts *NetworkServerAPITestSuite) TestMulticastQueue() {
 				FrmPayload:       []byte{1, 2, 3, 4},
 			}
 
-			_, err := ts.api.CreateMulticastQueueItem(context.Background(), &ns.CreateMulticastQueueItemRequest{
+			_, err := ts.api.EnqueueMulticastQueueItem(context.Background(), &ns.EnqueueMulticastQueueItemRequest{
 				Item: &qi1,
 			})
 			assert.NoError(err)
-			_, err = ts.api.CreateMulticastQueueItem(context.Background(), &ns.CreateMulticastQueueItemRequest{
+			_, err = ts.api.EnqueueMulticastQueueItem(context.Background(), &ns.EnqueueMulticastQueueItemRequest{
 				Item: &qi2,
 			})
 			assert.NoError(err)
@@ -158,29 +212,45 @@ func (ts *NetworkServerAPITestSuite) TestMulticastQueue() {
 					MulticastGroupId: mg.ID.Bytes(),
 				})
 				assert.NoError(err)
-				assert.Len(listResp.Items, 2)
+				assert.Len(listResp.Items, 4)
 
-				assert.EqualValues(10, listResp.Items[0].FCnt)
-				assert.EqualValues(11, listResp.Items[1].FCnt)
+				for i, exp := range []struct {
+					FCnt uint32
+				}{
+					{10}, {10}, {11}, {11},
+				} {
+					assert.Equal(exp.FCnt, listResp.Items[i].FCnt)
+				}
 			})
 
-			t.Run("Test emit at duration", func(t *testing.T) {
+			t.Run("Test emit and schedule at", func(t *testing.T) {
 				assert := require.New(t)
 
 				items, err := storage.GetMulticastQueueItemsForMulticastGroup(ts.DB(), mg.ID)
 				assert.NoError(err)
-				assert.Len(items, 2)
+				assert.Len(items, 4)
 
-				afterTS := gps.Time(time.Now()).TimeSinceGPSEpoch()
-				afterTS += 5 * time.Second
+				for _, item := range items {
+					assert.NotNil(item.EmitAtTimeSinceGPSEpoch)
+				}
 
-				qi1EmitAt, err := classb.GetNextPingSlotAfter(afterTS, mg.MCAddr, (1<<12)/mg.PingSlotPeriod)
-				assert.NoError(err)
-				assert.Equal(qi1EmitAt, *items[0].EmitAtTimeSinceGPSEpoch)
+				emitAt := *items[0].EmitAtTimeSinceGPSEpoch
 
-				qi2EmitAt, err := classb.GetNextPingSlotAfter(qi1EmitAt, mg.MCAddr, (1<<12)/mg.PingSlotPeriod)
-				assert.NoError(err)
-				assert.Equal(qi2EmitAt, *items[1].EmitAtTimeSinceGPSEpoch)
+				// iterate over the enqueued items and based on the first item
+				// calculate the next ping-slot and validate if this is used
+				// for the next queue-item.
+				for i := range items {
+					if i == 0 {
+						continue
+					}
+					var err error
+					emitAt, err = classb.GetNextPingSlotAfter(emitAt, mg.MCAddr, (1<<12)/mg.PingSlotPeriod)
+					assert.NoError(err)
+					assert.Equal(emitAt, *items[i].EmitAtTimeSinceGPSEpoch, "queue item %d", i)
+
+					scheduleAt := time.Time(gps.NewFromTimeSinceGPSEpoch(emitAt)).Add(-2 * config.SchedulerInterval)
+					assert.EqualValues(scheduleAt.UTC(), items[i].ScheduleAt.UTC())
+				}
 			})
 		})
 	})
@@ -193,6 +263,10 @@ func (ts *NetworkServerAPITestSuite) TestMulticastQueue() {
 		}
 		assert.NoError(storage.CreateMulticastGroup(ts.DB(), &mg))
 
+		for _, d := range devices {
+			assert.NoError(storage.AddDeviceToMulticastGroup(ts.DB(), d.DevEUI, mg.ID))
+		}
+
 		ts.T().Run("Create", func(t *testing.T) {
 			assert := require.New(t)
 
@@ -209,11 +283,11 @@ func (ts *NetworkServerAPITestSuite) TestMulticastQueue() {
 				FrmPayload:       []byte{1, 2, 3, 4},
 			}
 
-			_, err := ts.api.CreateMulticastQueueItem(context.Background(), &ns.CreateMulticastQueueItemRequest{
+			_, err := ts.api.EnqueueMulticastQueueItem(context.Background(), &ns.EnqueueMulticastQueueItemRequest{
 				Item: &qi1,
 			})
 			assert.NoError(err)
-			_, err = ts.api.CreateMulticastQueueItem(context.Background(), &ns.CreateMulticastQueueItemRequest{
+			_, err = ts.api.EnqueueMulticastQueueItem(context.Background(), &ns.EnqueueMulticastQueueItemRequest{
 				Item: &qi2,
 			})
 			assert.NoError(err)
@@ -225,26 +299,54 @@ func (ts *NetworkServerAPITestSuite) TestMulticastQueue() {
 					MulticastGroupId: mg.ID.Bytes(),
 				})
 				assert.NoError(err)
-				assert.Len(listResp.Items, 2)
+				assert.Len(listResp.Items, 4)
 
-				assert.EqualValues(10, listResp.Items[0].FCnt)
-				assert.EqualValues(11, listResp.Items[1].FCnt)
+				for i, exp := range []struct {
+					FCnt uint32
+				}{
+					{10}, {10}, {11}, {11},
+				} {
+					assert.Equal(exp.FCnt, listResp.Items[i].FCnt)
+				}
 			})
 
-			t.Run("Delete", func(t *testing.T) {
+			t.Run("Test emit and schedule at", func(t *testing.T) {
 				assert := require.New(t)
 
-				_, err := ts.api.FlushMulticastQueueForMulticastGroup(context.Background(), &ns.FlushMulticastQueueForMulticastGroupRequest{
-					MulticastGroupId: mg.ID.Bytes(),
-				})
+				items, err := storage.GetMulticastQueueItemsForMulticastGroup(ts.DB(), mg.ID)
 				assert.NoError(err)
+				assert.Len(items, 4)
 
-				listResp, err := ts.api.GetMulticastQueueItemsForMulticastGroup(context.Background(), &ns.GetMulticastQueueItemsForMulticastGroupRequest{
-					MulticastGroupId: mg.ID.Bytes(),
-				})
-				assert.NoError(err)
-				assert.Len(listResp.Items, 0)
+				for _, item := range items {
+					assert.Nil(item.EmitAtTimeSinceGPSEpoch)
+				}
+
+				scheduleAt := items[0].ScheduleAt
+
+				for i := range items {
+					if i == 0 {
+						continue
+					}
+
+					assert.Equal(scheduleAt, items[i].ScheduleAt.Add(-config.MulticastClassCInterval))
+					scheduleAt = items[i].ScheduleAt
+				}
 			})
+
+			// t.Run("Delete", func(t *testing.T) {
+			// 	assert := require.New(t)
+
+			// 	_, err := ts.api.FlushMulticastQueueForMulticastGroup(context.Background(), &ns.FlushMulticastQueueForMulticastGroupRequest{
+			// 		MulticastGroupId: mg.ID.Bytes(),
+			// 	})
+			// 	assert.NoError(err)
+
+			// 	listResp, err := ts.api.GetMulticastQueueItemsForMulticastGroup(context.Background(), &ns.GetMulticastQueueItemsForMulticastGroupRequest{
+			// 		MulticastGroupId: mg.ID.Bytes(),
+			// 	})
+			// 	assert.NoError(err)
+			// 	assert.Len(listResp.Items, 0)
+			// })
 		})
 	})
 

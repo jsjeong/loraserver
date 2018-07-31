@@ -574,6 +574,10 @@ func GetDeviceGatewayRXInfoSet(p *redis.Pool, devEUI lorawan.EUI64) (DeviceGatew
 // GetDeviceGatewayRXInfoSetForDevEUIs returns the DeviceGatewayRXInfoSet
 // objects for the given Device EUIs.
 func GetDeviceGatewayRXInfoSetForDevEUIs(p *redis.Pool, devEUIs []lorawan.EUI64) ([]DeviceGatewayRXInfoSet, error) {
+	if len(devEUIs) == 0 {
+		return nil, nil
+	}
+
 	var keys []interface{}
 	for _, d := range devEUIs {
 		keys = append(keys, fmt.Sprintf(deviceGatewayRXInfoSetKeyTempl, d))

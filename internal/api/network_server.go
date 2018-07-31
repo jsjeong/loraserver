@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -17,6 +18,7 @@ import (
 	"github.com/brocaar/loraserver/api/ns"
 	"github.com/brocaar/loraserver/internal/config"
 	"github.com/brocaar/loraserver/internal/downlink/data/classb"
+	"github.com/brocaar/loraserver/internal/downlink/multicast"
 	proprietarydown "github.com/brocaar/loraserver/internal/downlink/proprietary"
 	"github.com/brocaar/loraserver/internal/framelog"
 	"github.com/brocaar/loraserver/internal/gps"
@@ -1517,8 +1519,8 @@ func (n *NetworkServerAPI) GetMulticastGroupsForDevice(ctx context.Context, req 
 	return &out, nil
 }
 
-// CreateMulticastQueueItem creates the given multicast queue-item.
-func (n *NetworkServerAPI) CreateMulticastQueueItem(ctx context.Context, req *ns.CreateMulticastQueueItemRequest) (*empty.Empty, error) {
+// EnqueueMulticastQueueItem creates the given multicast queue-item.
+func (n *NetworkServerAPI) EnqueueMulticastQueueItem(ctx context.Context, req *ns.EnqueueMulticastQueueItemRequest) (*empty.Empty, error) {
 	if req.Item == nil {
 		return nil, grpc.Errorf(codes.InvalidArgument, "item must not be nil")
 	}
@@ -1526,57 +1528,19 @@ func (n *NetworkServerAPI) CreateMulticastQueueItem(ctx context.Context, req *ns
 	var mgID uuid.UUID
 	copy(mgID[:], req.Item.MulticastGroupId)
 
+	qi := storage.MulticastQueueItem{
+		MulticastGroupID: mgID,
+		FCnt:             req.Item.FCnt,
+		FPort:            uint8(req.Item.FPort),
+		FRMPayload:       req.Item.FrmPayload,
+	}
+
 	err := storage.Transaction(config.C.PostgreSQL.DB, func(tx sqlx.Ext) error {
-		mg, err := storage.GetMulticastGroup(tx, mgID, true)
-		if err != nil {
-			return errToRPCError(err)
-		}
-
-		var gpsEpochTS *time.Duration
-
-		// in case of class-b multicast, we need to calculate at which
-		// 'time since gps epoch' duration the frame must be emitted
-		if mg.GroupType == storage.MulticastGroupB {
-			var pingSlotNb int
-			if mg.PingSlotPeriod != 0 {
-				pingSlotNb = (1 << 12) / mg.PingSlotPeriod
-			}
-
-			scheduleAfterGPSEpochTS, err := storage.GetMaxEmitAtTimeSinceGPSEpochForMulticastGroup(tx, mg.ID)
-			if err != nil {
-				return errToRPCError(err)
-			}
-
-			if scheduleAfterGPSEpochTS == 0 {
-				scheduleAfterGPSEpochTS = gps.Time(time.Now()).TimeSinceGPSEpoch()
-
-				// take some margin into account
-				scheduleAfterGPSEpochTS += classBScheduleMargin
-			}
-
-			ts, err := classb.GetNextPingSlotAfter(scheduleAfterGPSEpochTS, mg.MCAddr, pingSlotNb)
-			if err != nil {
-				return errToRPCError(err)
-			}
-
-			gpsEpochTS = &ts
-		}
-
-		qi := storage.MulticastQueueItem{
-			MulticastGroupID:        mg.ID,
-			FCnt:                    req.Item.FCnt,
-			FPort:                   uint8(req.Item.FPort),
-			FRMPayload:              req.Item.FrmPayload,
-			EmitAtTimeSinceGPSEpoch: gpsEpochTS,
-		}
-		if err := storage.CreateMulticastQueueItem(tx, &qi); err != nil {
-			return errToRPCError(err)
-		}
-
-		return nil
+		return multicast.EnqueueQueueItem(config.C.Redis.Pool, tx, qi)
 	})
 	if err != nil {
-		return nil, err
+		fmt.Println(err)
+		return nil, errToRPCError(err)
 	}
 
 	return &empty.Empty{}, nil

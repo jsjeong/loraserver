@@ -50,6 +50,8 @@ func (t *UplinkTest) TestDeviceGatewayRXInfoSetHasBeenStored() {
 	rxInfoSet, err := storage.GetDeviceGatewayRXInfoSet(config.C.Redis.Pool, t.Device.DevEUI)
 	t.Require().Nil(err)
 	t.Equal(storage.DeviceGatewayRXInfoSet{
+		DevEUI: t.Device.DevEUI,
+		DR:     2,
 		Items: []storage.DeviceGatewayRXInfo{
 			{
 				GatewayID: t.Gateway.MAC,

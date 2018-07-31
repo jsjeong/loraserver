@@ -160,3 +160,11 @@ var SchedulerBatchSize = 100
 // ClassCDownlinkLockDuration contains the duration to lock the downlink
 // Class-C transmissions after a preceeding downlink tx.
 var ClassCDownlinkLockDuration = time.Second * 2
+
+// ClassBEnqueueMargin contains the margin duration when scheduling Class-B
+// messages.
+var ClassBEnqueueMargin = time.Second * 5
+
+// MulticastClassCInterval defines the interval between the gateway scheduling
+// for Class-C multicast.
+var MulticastClassCInterval = time.Second

@@ -53,18 +53,24 @@ func ScheduleDeviceQueueBatch(size int) error {
 // ScheduleMulticastQueueBatch schedules a donwlink multicast batch (Class-B & -C).
 func ScheduleMulticastQueueBatch(size int) error {
 	return storage.Transaction(config.C.PostgreSQL.DB, func(tx sqlx.Ext) error {
+		// this locks the selected multicast-groups
 		multicastGroups, err := storage.GetMulticastGroupsWithQueueItems(tx, size)
 		if err != nil {
 			return errors.Wrap(err, "get multicast-groups with queue items error")
 		}
 
 		for _, mg := range multicastGroups {
-			err = multicast.HandleScheduleNextQueueItem(mg)
+			// run each scheduling in a separate transaction as we want to
+			// commit each succesful scheduled batch item
+			err = storage.Transaction(config.C.PostgreSQL.DB, func(tx sqlx.Ext) error {
+				return multicast.HandleScheduleNextQueueItem(tx, mg)
+			})
 			if err != nil {
 				log.WithFields(log.Fields{
 					"multicast_group_id": mg.ID,
 				}).WithError(err).Error("schedule next multicast-group queue-item error")
 			}
+			return err
 		}
 
 		return nil

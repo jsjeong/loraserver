@@ -9,8 +9,6 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/brocaar/loraserver/internal/config"
-	"github.com/brocaar/loraserver/internal/gps"
 	"github.com/brocaar/lorawan"
 )
 
@@ -39,12 +37,15 @@ type MulticastGroup struct {
 
 // MulticastQueueItem defines a multicast queue-item.
 type MulticastQueueItem struct {
-	MulticastGroupID        uuid.UUID      `db:"multicast_group_id"`
-	FCnt                    uint32         `db:"f_cnt"`
+	ID                      int64          `db:"id"`
 	CreatedAt               time.Time      `db:"created_at"`
+	ScheduleAt              time.Time      `db:"schedule_at"`
+	EmitAtTimeSinceGPSEpoch *time.Duration `db:"emit_at_time_since_gps_epoch"`
+	MulticastGroupID        uuid.UUID      `db:"multicast_group_id"`
+	GatewayID               lorawan.EUI64  `db:"gateway_id"`
+	FCnt                    uint32         `db:"f_cnt"`
 	FPort                   uint8          `db:"f_port"`
 	FRMPayload              []byte         `db:"frm_payload"`
-	EmitAtTimeSinceGPSEpoch *time.Duration `db:"emit_at_time_since_gps_epoch"`
 }
 
 // Validate validates the MulticastQueueItem.
@@ -199,51 +200,58 @@ func DeleteMulticastGroup(db sqlx.Execer, id uuid.UUID) error {
 }
 
 // CreateMulticastQueueItem adds the given item to the queue.
-func CreateMulticastQueueItem(db sqlx.Execer, qi *MulticastQueueItem) error {
+func CreateMulticastQueueItem(db sqlx.Queryer, qi *MulticastQueueItem) error {
 	if err := qi.Validate(); err != nil {
 		return err
 	}
 
 	qi.CreatedAt = time.Now()
 
-	_, err := db.Exec(`
+	err := sqlx.Get(db, &qi.ID, `
 		insert into multicast_queue (
 			created_at,
+			schedule_at,
+			emit_at_time_since_gps_epoch,
 			multicast_group_id,
+			gateway_id,
 			f_cnt,
 			f_port,
-			frm_payload,
-			emit_at_time_since_gps_epoch
-		) values ($1, $2, $3, $4, $5, $6)
+			frm_payload
+		) values ($1, $2, $3, $4, $5, $6, $7, $8)
+		returning
+			id
 		`,
 		qi.CreatedAt,
+		qi.ScheduleAt,
+		qi.EmitAtTimeSinceGPSEpoch,
 		qi.MulticastGroupID,
+		qi.GatewayID,
 		qi.FCnt,
 		qi.FPort,
 		qi.FRMPayload,
-		qi.EmitAtTimeSinceGPSEpoch,
 	)
 	if err != nil {
 		return handlePSQLError(err, "insert error")
 	}
 
 	log.WithFields(log.Fields{
-		"multicast_group_id": qi.MulticastGroupID,
+		"id":                 qi.ID,
 		"f_cnt":              qi.FCnt,
+		"gateway_id":         qi.GatewayID,
+		"multicast_group_id": qi.MulticastGroupID,
 	}).Info("multicast queue-item created")
 
 	return nil
 }
 
 // DeleteMulticastQueueItem deletes the queue-item given an id.
-func DeleteMulticastQueueItem(db sqlx.Execer, multicastGroupID uuid.UUID, fCnt uint32) error {
+func DeleteMulticastQueueItem(db sqlx.Execer, id int64) error {
 	res, err := db.Exec(`
 		delete from
 			multicast_queue
 		where
-			multicast_group_id = $1
-			and f_cnt = $2
-	`, multicastGroupID, fCnt)
+			id = $1
+	`, id)
 	if err != nil {
 		return handlePSQLError(err, "delete error")
 	}
@@ -256,8 +264,7 @@ func DeleteMulticastQueueItem(db sqlx.Execer, multicastGroupID uuid.UUID, fCnt u
 	}
 
 	log.WithFields(log.Fields{
-		"multicast_group_id": multicastGroupID,
-		"f_cnt":              fCnt,
+		"id": id,
 	}).Info("multicast queue-item deleted")
 
 	return nil
@@ -266,7 +273,7 @@ func DeleteMulticastQueueItem(db sqlx.Execer, multicastGroupID uuid.UUID, fCnt u
 // FlushMulticastQueueForMulticastGroup flushes the multicast-queue given
 // a multicast-group id.
 func FlushMulticastQueueForMulticastGroup(db sqlx.Execer, multicastGroupID uuid.UUID) error {
-	res, err := db.Exec(`
+	_, err := db.Exec(`
 		delete from
 			multicast_queue
 		where
@@ -274,13 +281,6 @@ func FlushMulticastQueueForMulticastGroup(db sqlx.Execer, multicastGroupID uuid.
 	`, multicastGroupID)
 	if err != nil {
 		return handlePSQLError(err, "delete error")
-	}
-	ra, err := res.RowsAffected()
-	if err != nil {
-		return errors.Wrap(err, "get rows affected error")
-	}
-	if ra == 0 {
-		return ErrDoesNotExist
 	}
 
 	log.WithFields(log.Fields{
@@ -303,7 +303,7 @@ func GetMulticastQueueItemsForMulticastGroup(db sqlx.Queryer, multicastGroupID u
 		where
 			multicast_group_id = $1
 		order by
-			f_cnt
+			id
 	`, multicastGroupID)
 	if err != nil {
 		return nil, handlePSQLError(err, "select error")
@@ -315,11 +315,9 @@ func GetMulticastQueueItemsForMulticastGroup(db sqlx.Queryer, multicastGroupID u
 // GetMulticastGroupsWithQueueItems returns a slice of multicast-groups that
 // contain queue items.
 // The multicast-group records will be locked for update so that multiple
-// instnaces can run this query in parallel without the rist of duplicate
+// instances can run this query in parallel without the risk of duplicate
 // scheduling.
 func GetMulticastGroupsWithQueueItems(db sqlx.Ext, count int) ([]MulticastGroup, error) {
-	gpsEpochScheduleTime := gps.Time(time.Now().Add(config.SchedulerInterval * 2)).TimeSinceGPSEpoch()
-
 	var multicastGroups []MulticastGroup
 	err := sqlx.Select(db, &multicastGroups, `
 		select
@@ -332,24 +330,18 @@ func GetMulticastGroupsWithQueueItems(db sqlx.Ext, count int) ([]MulticastGroup,
 				multicast_queue mq
 			where
 				mq.multicast_group_id = mg.id
-				and (
-					mg.group_type = 'C'
-					or (
-						mg.group_type = 'B'
-						and mq.emit_at_time_since_gps_epoch <= $2
-					)
-				)
+				and mq.schedule_at <= $2
 		)
 		limit $1
 		for update of mg skip locked
-	`, count, gpsEpochScheduleTime)
+	`, count, time.Now())
 	if err != nil {
 		return nil, handlePSQLError(err, "select error")
 	}
 	return multicastGroups, nil
 }
 
-// GetNextMulticastQueueItemForMulticastGroup returns the next muticast
+// GetNextMulticastQueueItemForMulticastGroup returns the next multicast
 // queue-item given a multicast-group.
 func GetNextMulticastQueueItemForMulticastGroup(db sqlx.Queryer, multicastGroupID uuid.UUID) (MulticastQueueItem, error) {
 	var qi MulticastQueueItem
@@ -361,7 +353,7 @@ func GetNextMulticastQueueItemForMulticastGroup(db sqlx.Queryer, multicastGroupI
 		where
 			multicast_group_id = $1
 		order by
-			f_cnt
+			id
 		limit 1
 	`, multicastGroupID)
 	if err != nil {
@@ -388,4 +380,27 @@ func GetMaxEmitAtTimeSinceGPSEpochForMulticastGroup(db sqlx.Queryer, multicastGr
 	}
 
 	return timeSinceGPSEpoch, nil
+}
+
+// GetMaxScheduleAtForMulticastGroup returns the maximum schedule at timestamp
+// for the given multicast-group.
+func GetMaxScheduleAtForMulticastGroup(db sqlx.Queryer, multicastGroupID uuid.UUID) (time.Time, error) {
+	ts := new(time.Time)
+
+	err := sqlx.Get(db, &ts, `
+		select
+			max(schedule_at)
+		from
+			multicast_queue
+		where
+			multicast_group_id = $1
+	`, multicastGroupID)
+	if err != nil {
+		return time.Time{}, handlePSQLError(err, "select error")
+	}
+
+	if ts != nil {
+		return *ts, nil
+	}
+	return time.Time{}, nil
 }

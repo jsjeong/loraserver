@@ -35,7 +35,7 @@ func (m *DeviceSessionPBChannel) Reset()         { *m = DeviceSessionPBChannel{}
 func (m *DeviceSessionPBChannel) String() string { return proto.CompactTextString(m) }
 func (*DeviceSessionPBChannel) ProtoMessage()    {}
 func (*DeviceSessionPBChannel) Descriptor() ([]byte, []int) {
-	return fileDescriptor_device_session_88c1f7a2fd7bf38b, []int{0}
+	return fileDescriptor_device_session_917217106b41a189, []int{0}
 }
 func (m *DeviceSessionPBChannel) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeviceSessionPBChannel.Unmarshal(m, b)
@@ -94,7 +94,7 @@ func (m *DeviceSessionPBUplinkADRHistory) Reset()         { *m = DeviceSessionPB
 func (m *DeviceSessionPBUplinkADRHistory) String() string { return proto.CompactTextString(m) }
 func (*DeviceSessionPBUplinkADRHistory) ProtoMessage()    {}
 func (*DeviceSessionPBUplinkADRHistory) Descriptor() ([]byte, []int) {
-	return fileDescriptor_device_session_88c1f7a2fd7bf38b, []int{1}
+	return fileDescriptor_device_session_917217106b41a189, []int{1}
 }
 func (m *DeviceSessionPBUplinkADRHistory) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeviceSessionPBUplinkADRHistory.Unmarshal(m, b)
@@ -152,7 +152,7 @@ func (m *DeviceSessionPBUplinkGatewayHistory) Reset()         { *m = DeviceSessi
 func (m *DeviceSessionPBUplinkGatewayHistory) String() string { return proto.CompactTextString(m) }
 func (*DeviceSessionPBUplinkGatewayHistory) ProtoMessage()    {}
 func (*DeviceSessionPBUplinkGatewayHistory) Descriptor() ([]byte, []int) {
-	return fileDescriptor_device_session_88c1f7a2fd7bf38b, []int{2}
+	return fileDescriptor_device_session_917217106b41a189, []int{2}
 }
 func (m *DeviceSessionPBUplinkGatewayHistory) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeviceSessionPBUplinkGatewayHistory.Unmarshal(m, b)
@@ -284,7 +284,7 @@ func (m *DeviceSessionPB) Reset()         { *m = DeviceSessionPB{} }
 func (m *DeviceSessionPB) String() string { return proto.CompactTextString(m) }
 func (*DeviceSessionPB) ProtoMessage()    {}
 func (*DeviceSessionPB) Descriptor() ([]byte, []int) {
-	return fileDescriptor_device_session_88c1f7a2fd7bf38b, []int{3}
+	return fileDescriptor_device_session_917217106b41a189, []int{3}
 }
 func (m *DeviceSessionPB) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeviceSessionPB.Unmarshal(m, b)
@@ -621,7 +621,7 @@ func (m *DeviceGatewayRXInfoSetPB) Reset()         { *m = DeviceGatewayRXInfoSet
 func (m *DeviceGatewayRXInfoSetPB) String() string { return proto.CompactTextString(m) }
 func (*DeviceGatewayRXInfoSetPB) ProtoMessage()    {}
 func (*DeviceGatewayRXInfoSetPB) Descriptor() ([]byte, []int) {
-	return fileDescriptor_device_session_88c1f7a2fd7bf38b, []int{4}
+	return fileDescriptor_device_session_917217106b41a189, []int{4}
 }
 func (m *DeviceGatewayRXInfoSetPB) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeviceGatewayRXInfoSetPB.Unmarshal(m, b)
@@ -678,7 +678,7 @@ func (m *DeviceGatewayRXInfoPB) Reset()         { *m = DeviceGatewayRXInfoPB{} }
 func (m *DeviceGatewayRXInfoPB) String() string { return proto.CompactTextString(m) }
 func (*DeviceGatewayRXInfoPB) ProtoMessage()    {}
 func (*DeviceGatewayRXInfoPB) Descriptor() ([]byte, []int) {
-	return fileDescriptor_device_session_88c1f7a2fd7bf38b, []int{5}
+	return fileDescriptor_device_session_917217106b41a189, []int{5}
 }
 func (m *DeviceGatewayRXInfoPB) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeviceGatewayRXInfoPB.Unmarshal(m, b)
@@ -731,10 +731,10 @@ func init() {
 }
 
 func init() {
-	proto.RegisterFile("device_session.proto", fileDescriptor_device_session_88c1f7a2fd7bf38b)
+	proto.RegisterFile("device_session.proto", fileDescriptor_device_session_917217106b41a189)
 }
 
-var fileDescriptor_device_session_88c1f7a2fd7bf38b = []byte{
+var fileDescriptor_device_session_917217106b41a189 = []byte{
 	// 1287 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x56, 0x5b, 0x53, 0x1b, 0x37,
 	0x14, 0x1e, 0x43, 0xb8, 0x1d, 0x30, 0x17, 0x71, 0x89, 0xa0, 0x50, 0x1c, 0x93, 0x34, 0x6e, 0x9a,

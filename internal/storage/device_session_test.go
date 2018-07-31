@@ -345,10 +345,10 @@ func (ts *StorageTestSuite) TestDeviceGatewayRXInfoSet() {
 
 		rxInfoSet := DeviceGatewayRXInfoSet{
 			DevEUI: devEUI,
+			DR:     3,
 			Items: []DeviceGatewayRXInfo{
 				{
 					GatewayID: lorawan.EUI64{2, 2, 3, 4, 5, 6, 7, 8},
-					DR:        3,
 					RSSI:      -60,
 					LoRaSNR:   5.5,
 				},

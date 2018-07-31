@@ -87,6 +87,11 @@ func (ts *StorageTestSuite) TestMulticastQueue() {
 	mg := ts.GetMulticastGroup()
 	assert.NoError(CreateMulticastGroup(ts.Tx(), &mg))
 
+	gw := Gateway{
+		MAC: lorawan.EUI64{1, 1, 1, 1, 1, 1, 1, 1},
+	}
+	assert.NoError(CreateGateway(ts.Tx(), &gw))
+
 	ts.T().Run("Create", func(t *testing.T) {
 		assert := require.New(t)
 
@@ -95,6 +100,7 @@ func (ts *StorageTestSuite) TestMulticastQueue() {
 
 		qi1 := MulticastQueueItem{
 			MulticastGroupID:        mg.ID,
+			GatewayID:               lorawan.EUI64{1, 1, 1, 1, 1, 1, 1, 1},
 			FCnt:                    10,
 			FPort:                   20,
 			FRMPayload:              []byte{1, 2, 3, 4},
@@ -103,6 +109,7 @@ func (ts *StorageTestSuite) TestMulticastQueue() {
 
 		qi2 := MulticastQueueItem{
 			MulticastGroupID:        mg.ID,
+			GatewayID:               lorawan.EUI64{1, 1, 1, 1, 1, 1, 1, 1},
 			FCnt:                    11,
 			FPort:                   20,
 			FRMPayload:              []byte{1, 2, 3, 4},
@@ -143,7 +150,7 @@ func (ts *StorageTestSuite) TestMulticastQueue() {
 		t.Run("Delete", func(t *testing.T) {
 			assert := require.New(t)
 
-			assert.NoError(DeleteMulticastQueueItem(ts.Tx(), mg.ID, 10))
+			assert.NoError(DeleteMulticastQueueItem(ts.Tx(), qi1.ID))
 			items, err := GetMulticastQueueItemsForMulticastGroup(ts.Tx(), mg.ID)
 			assert.NoError(err)
 			assert.Len(items, 1)
@@ -170,19 +177,36 @@ func (ts *StorageTestSuite) TestGetMulticastGroupsWithQueueItems() {
 	mg2.GroupType = MulticastGroupC
 	assert.NoError(CreateMulticastGroup(ts.DB(), &mg2))
 
+	gw := Gateway{
+		MAC: lorawan.EUI64{1, 1, 1, 1, 1, 1, 1, 2},
+	}
+	assert.NoError(CreateGateway(ts.DB(), &gw))
+
 	qi1 := MulticastQueueItem{
+		ScheduleAt:       time.Now(),
 		MulticastGroupID: mg1.ID,
+		GatewayID:        gw.MAC,
 		FCnt:             10,
 		FPort:            20,
 		FRMPayload:       []byte{1, 2, 3, 4},
 	}
-
 	assert.NoError(CreateMulticastQueueItem(ts.DB(), &qi1))
+
+	qi2 := MulticastQueueItem{
+		ScheduleAt:       time.Now().Add(time.Second),
+		MulticastGroupID: mg2.ID,
+		GatewayID:        gw.MAC,
+		FCnt:             10,
+		FPort:            20,
+		FRMPayload:       []byte{1, 2, 3, 4},
+	}
+	assert.NoError(CreateMulticastQueueItem(ts.DB(), &qi2))
 
 	Transaction(ts.DB(), func(tx sqlx.Ext) error {
 		groups, err := GetMulticastGroupsWithQueueItems(tx, 10)
 		assert.NoError(err)
 		assert.Len(groups, 1)
+		assert.Equal(mg1.ID, groups[0].ID)
 
 		// new transaction must return 0 items as the first one did lock
 		// the multicast-group

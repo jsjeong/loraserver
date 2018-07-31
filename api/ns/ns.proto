@@ -144,8 +144,10 @@ service NetworkServerService {
     // GetMulticastGroupsForDevice returns the multicast-groups that are assigned to the given device.
     rpc GetMulticastGroupsForDevice(GetMulticastGroupsForDeviceRequest) returns (GetMulticastGroupsForDeviceResponse) {}
 
-    // CreateMulticastQueueItem creates the given multicast queue-item.
-    rpc CreateMulticastQueueItem(CreateMulticastQueueItemRequest) returns (google.protobuf.Empty) {}
+    // EnqueueMulticastQueueItem enqueues the given multicast queue-item.
+    // Note that this might create multiple queue-items, based on the number of
+    // gateways that are needed to cover all devices within the multicast-group.
+    rpc EnqueueMulticastQueueItem(EnqueueMulticastQueueItemRequest) returns (google.protobuf.Empty) {}
 
     // FlushMulticastQueueForMulticastGroup flushes the multicast device-queue given a multicast-group id.
     rpc FlushMulticastQueueForMulticastGroup(FlushMulticastQueueForMulticastGroupRequest) returns (google.protobuf.Empty) {}
@@ -763,17 +765,22 @@ message MulticastQueueItem {
     // Multicast-group id.
     bytes multicast_group_id = 1;
 
+    // Gateway ID on which the queue-item is schedule.
+    // This value is set automatically on create. Please note that a single
+    // queue-item can be scheduled onto multiple gateways.
+    bytes gateway_id = 2;
+
     // Encrypted FRMPayload bytes.
-    bytes frm_payload = 2;
+    bytes frm_payload = 3;
 
     // Frame-counter of payload.
-    uint32 f_cnt = 3;
+    uint32 f_cnt = 4;
 
     // Frame-port of payload.
-    uint32 f_port = 4;
+    uint32 f_port = 5;
 }
 
-message CreateMulticastQueueItemRequest {
+message EnqueueMulticastQueueItemRequest {
     MulticastQueueItem item = 1;
 }
 
