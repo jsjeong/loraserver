@@ -12,18 +12,22 @@ import (
 func (ts *StorageTestSuite) TestDeviceMulticastGroup() {
 	assert := require.New(ts.T())
 
+	var sp ServiceProfile
+	var rp RoutingProfile
+
+	assert.NoError(CreateServiceProfile(ts.Tx(), &sp))
+	assert.NoError(CreateRoutingProfile(ts.Tx(), &rp))
+
 	mg := MulticastGroup{
-		GroupType: MulticastGroupB,
+		GroupType:        MulticastGroupB,
+		ServiceProfileID: sp.ID,
+		RoutingProfileID: rp.ID,
 	}
 	assert.Nil(CreateMulticastGroup(ts.Tx(), &mg))
 
-	sp := ServiceProfile{}
 	dp := DeviceProfile{}
-	rp := RoutingProfile{}
 
-	assert.Nil(CreateServiceProfile(ts.Tx(), &sp))
 	assert.Nil(CreateDeviceProfile(ts.Tx(), &dp))
-	assert.Nil(CreateRoutingProfile(ts.Tx(), &rp))
 
 	d := Device{
 		DevEUI:           lorawan.EUI64{1, 2, 3, 4, 5, 6, 7, 8},

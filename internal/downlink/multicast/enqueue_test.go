@@ -27,13 +27,21 @@ func (ts *EnqueueQueueItemTestCase) SetupTest() {
 	ts.DatabaseTestSuiteBase.SetupTest()
 	assert := require.New(ts.T())
 
+	var sp storage.ServiceProfile
+	var rp storage.RoutingProfile
+
+	assert.NoError(storage.CreateServiceProfile(ts.Tx(), &sp))
+	assert.NoError(storage.CreateRoutingProfile(ts.Tx(), &rp))
+
 	ts.MulticastGroup = storage.MulticastGroup{
-		GroupType: storage.MulticastGroupC,
-		MCAddr:    lorawan.DevAddr{1, 2, 3, 4},
-		MCNetSKey: lorawan.AES128Key{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
-		Frequency: 868100000,
-		FCnt:      11,
-		DR:        3,
+		GroupType:        storage.MulticastGroupC,
+		MCAddr:           lorawan.DevAddr{1, 2, 3, 4},
+		MCNetSKey:        lorawan.AES128Key{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
+		Frequency:        868100000,
+		FCnt:             11,
+		DR:               3,
+		ServiceProfileID: sp.ID,
+		RoutingProfileID: rp.ID,
 	}
 	assert.NoError(storage.CreateMulticastGroup(ts.Tx(), &ts.MulticastGroup))
 
@@ -49,12 +57,8 @@ func (ts *EnqueueQueueItemTestCase) SetupTest() {
 		assert.NoError(storage.CreateGateway(ts.Tx(), &ts.Gateways[i]))
 	}
 
-	var rp storage.RoutingProfile
-	var sp storage.ServiceProfile
 	var dp storage.DeviceProfile
 
-	assert.NoError(storage.CreateRoutingProfile(ts.Tx(), &rp))
-	assert.NoError(storage.CreateServiceProfile(ts.Tx(), &sp))
 	assert.NoError(storage.CreateDeviceProfile(ts.Tx(), &dp))
 
 	ts.Devices = []storage.Device{

@@ -9,8 +9,13 @@ create table multicast_group (
     group_type char not null,
     dr int not null,
     frequency int not null,
-    ping_slot_period int not null
+    ping_slot_period int not null,
+    routing_profile_id uuid not null references routing_profile on delete cascade,
+    service_profile_id uuid not null references service_profile on delete cascade
 );
+
+create index idx_multicast_group_routing_profile_id on multicast_group(routing_profile_id);
+create index idx_multicast_group_service_profile_id on multicast_group(service_profile_id);
 
 create table device_multicast_group (
     dev_eui bytea references device on delete cascade,
@@ -46,4 +51,6 @@ drop table multicast_queue;
 
 drop table device_multicast_group;
 
+drop index idx_multicast_group_service_profile_id;
+drop index idx_multicast_group_routing_profile_id;
 drop table multicast_group;

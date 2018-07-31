@@ -33,14 +33,24 @@ func (ts *NetworkServerAPITestSuite) SetupSuite() {
 }
 
 func (ts *NetworkServerAPITestSuite) TestMulticastGroup() {
+	assert := require.New(ts.T())
+
+	var rp storage.RoutingProfile
+	var sp storage.ServiceProfile
+
+	assert.NoError(storage.CreateRoutingProfile(ts.DB(), &rp))
+	assert.NoError(storage.CreateServiceProfile(ts.DB(), &sp))
+
 	mg := ns.MulticastGroup{
-		McAddr:         []byte{1, 2, 3, 4},
-		McNetSKey:      []byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
-		FCnt:           10,
-		GroupType:      ns.MulticastGroupType_CLASS_B,
-		Dr:             5,
-		Frequency:      868300000,
-		PingSlotPeriod: 16,
+		McAddr:           []byte{1, 2, 3, 4},
+		McNetSKey:        []byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
+		FCnt:             10,
+		GroupType:        ns.MulticastGroupType_CLASS_B,
+		Dr:               5,
+		Frequency:        868300000,
+		PingSlotPeriod:   16,
+		RoutingProfileId: rp.ID[:],
+		ServiceProfileId: sp.ID[:],
 	}
 
 	ts.T().Run("Create", func(t *testing.T) {
@@ -69,14 +79,16 @@ func (ts *NetworkServerAPITestSuite) TestMulticastGroup() {
 			assert := require.New(t)
 
 			mgUpdated := ns.MulticastGroup{
-				Id:             createResp.Id,
-				McAddr:         []byte{4, 3, 2, 1},
-				McNetSKey:      []byte{8, 7, 6, 5, 4, 3, 2, 1, 8, 7, 6, 5, 4, 3, 2, 1},
-				FCnt:           20,
-				GroupType:      ns.MulticastGroupType_CLASS_C,
-				Dr:             3,
-				Frequency:      868100000,
-				PingSlotPeriod: 32,
+				Id:               createResp.Id,
+				McAddr:           []byte{4, 3, 2, 1},
+				McNetSKey:        []byte{8, 7, 6, 5, 4, 3, 2, 1, 8, 7, 6, 5, 4, 3, 2, 1},
+				FCnt:             20,
+				GroupType:        ns.MulticastGroupType_CLASS_C,
+				Dr:               3,
+				Frequency:        868100000,
+				PingSlotPeriod:   32,
+				RoutingProfileId: rp.ID[:],
+				ServiceProfileId: sp.ID[:],
 			}
 
 			_, err := ts.api.UpdateMulticastGroup(context.Background(), &ns.UpdateMulticastGroupRequest{
@@ -170,9 +182,11 @@ func (ts *NetworkServerAPITestSuite) TestMulticastQueue() {
 		assert := require.New(t)
 
 		mg := storage.MulticastGroup{
-			GroupType:      storage.MulticastGroupB,
-			MCAddr:         lorawan.DevAddr{1, 2, 3, 4},
-			PingSlotPeriod: 32 * 128, // every 128 seconds
+			GroupType:        storage.MulticastGroupB,
+			MCAddr:           lorawan.DevAddr{1, 2, 3, 4},
+			PingSlotPeriod:   32 * 128, // every 128 seconds
+			ServiceProfileID: sp.ID,
+			RoutingProfileID: rp.ID,
 		}
 		assert.NoError(storage.CreateMulticastGroup(ts.DB(), &mg))
 
@@ -259,7 +273,9 @@ func (ts *NetworkServerAPITestSuite) TestMulticastQueue() {
 		assert := require.New(t)
 
 		mg := storage.MulticastGroup{
-			GroupType: storage.MulticastGroupC,
+			GroupType:        storage.MulticastGroupC,
+			ServiceProfileID: sp.ID,
+			RoutingProfileID: rp.ID,
 		}
 		assert.NoError(storage.CreateMulticastGroup(ts.DB(), &mg))
 
@@ -332,21 +348,6 @@ func (ts *NetworkServerAPITestSuite) TestMulticastQueue() {
 					scheduleAt = items[i].ScheduleAt
 				}
 			})
-
-			// t.Run("Delete", func(t *testing.T) {
-			// 	assert := require.New(t)
-
-			// 	_, err := ts.api.FlushMulticastQueueForMulticastGroup(context.Background(), &ns.FlushMulticastQueueForMulticastGroupRequest{
-			// 		MulticastGroupId: mg.ID.Bytes(),
-			// 	})
-			// 	assert.NoError(err)
-
-			// 	listResp, err := ts.api.GetMulticastQueueItemsForMulticastGroup(context.Background(), &ns.GetMulticastQueueItemsForMulticastGroupRequest{
-			// 		MulticastGroupId: mg.ID.Bytes(),
-			// 	})
-			// 	assert.NoError(err)
-			// 	assert.Len(listResp.Items, 0)
-			// })
 		})
 	})
 
@@ -414,7 +415,10 @@ func (ts *NetworkServerAPITestSuite) TestDevice() {
 		t.Run("Multicast-groups", func(t *testing.T) {
 			assert := require.New(t)
 
-			mg1 := storage.MulticastGroup{}
+			mg1 := storage.MulticastGroup{
+				RoutingProfileID: rp.ID,
+				ServiceProfileID: sp.ID,
+			}
 			assert.NoError(storage.CreateMulticastGroup(ts.DB(), &mg1))
 
 			t.Run("Add", func(t *testing.T) {

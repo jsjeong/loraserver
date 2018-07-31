@@ -691,6 +691,12 @@ message MulticastGroup {
     // Ping-slot period.
     // Mandatory for Class-B multicast groups.
     uint32 ping_slot_period = 8;
+
+    // Service-profile ID.
+    bytes service_profile_id = 9;
+
+    // Routing-profile ID.
+    bytes routing_profile_id = 10;
 }
 
 message CreateMulticastGroupRequest {

@@ -5,21 +5,30 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/brocaar/lorawan"
 )
 
 func (ts *StorageTestSuite) GetMulticastGroup() MulticastGroup {
+	assert := require.New(ts.T())
+
+	var sp ServiceProfile
+	var rp RoutingProfile
+
+	assert.NoError(CreateServiceProfile(ts.DB(), &sp))
+	assert.NoError(CreateRoutingProfile(ts.DB(), &rp))
+
 	return MulticastGroup{
-		MCAddr:         lorawan.DevAddr{1, 2, 3, 4},
-		MCNetSKey:      lorawan.AES128Key{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
-		FCnt:           10,
-		GroupType:      MulticastGroupB,
-		DR:             5,
-		Frequency:      868300000,
-		PingSlotPeriod: 16,
+		MCAddr:           lorawan.DevAddr{1, 2, 3, 4},
+		MCNetSKey:        lorawan.AES128Key{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
+		FCnt:             10,
+		GroupType:        MulticastGroupB,
+		DR:               5,
+		Frequency:        868300000,
+		PingSlotPeriod:   16,
+		ServiceProfileID: sp.ID,
+		RoutingProfileID: rp.ID,
 	}
 }
 

@@ -17,9 +17,21 @@ import (
 // and Class-C sheduling.
 func DeviceQueueSchedulerLoop() {
 	for {
-		log.Debug("running class-c scheduler batch")
+		log.Debug("running class-b / class-c scheduler batch")
 		if err := ScheduleDeviceQueueBatch(config.SchedulerBatchSize); err != nil {
-			log.WithError(err).Error("class-c scheduler error")
+			log.WithError(err).Error("class-b / class-c scheduler error")
+		}
+		time.Sleep(config.SchedulerInterval)
+	}
+}
+
+// MulticastQueueSchedulerLoop starts an infinit loop calling the multicast
+// scheduler loop.
+func MulticastQueueSchedulerLoop() {
+	for {
+		log.Debug("running multicast scheduler batch")
+		if err := ScheduleMulticastQueueBatch(config.SchedulerBatchSize); err != nil {
+			log.WithError(err).Error("multicast scheduler error")
 		}
 		time.Sleep(config.SchedulerInterval)
 	}

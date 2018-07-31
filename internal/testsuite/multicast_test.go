@@ -30,22 +30,6 @@ func (ts *MulticastTestSuite) SetupSuite() {
 
 	config.C.NetworkServer.Gateway.Backend.Backend = test.NewGatewayBackend()
 
-	ts.Gateway = storage.Gateway{
-		MAC: lorawan.EUI64{1, 1, 1, 1, 1, 1, 1, 1},
-	}
-	assert.NoError(storage.CreateGateway(ts.DB(), &ts.Gateway))
-
-	ts.MulticastGroup = storage.MulticastGroup{
-		GroupType:      storage.MulticastGroupB,
-		MCAddr:         lorawan.DevAddr{1, 2, 3, 4},
-		MCNetSKey:      lorawan.AES128Key{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
-		DR:             3,
-		Frequency:      868300000,
-		PingSlotPeriod: 32,
-		FCnt:           10,
-	}
-	assert.NoError(storage.CreateMulticastGroup(ts.DB(), &ts.MulticastGroup))
-
 	var dp storage.DeviceProfile
 	var sp storage.ServiceProfile
 	var rp storage.RoutingProfile
@@ -53,6 +37,24 @@ func (ts *MulticastTestSuite) SetupSuite() {
 	assert.NoError(storage.CreateDeviceProfile(ts.DB(), &dp))
 	assert.NoError(storage.CreateServiceProfile(ts.DB(), &sp))
 	assert.NoError(storage.CreateRoutingProfile(ts.DB(), &rp))
+
+	ts.Gateway = storage.Gateway{
+		MAC: lorawan.EUI64{1, 1, 1, 1, 1, 1, 1, 1},
+	}
+	assert.NoError(storage.CreateGateway(ts.DB(), &ts.Gateway))
+
+	ts.MulticastGroup = storage.MulticastGroup{
+		GroupType:        storage.MulticastGroupB,
+		MCAddr:           lorawan.DevAddr{1, 2, 3, 4},
+		MCNetSKey:        lorawan.AES128Key{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
+		DR:               3,
+		Frequency:        868300000,
+		PingSlotPeriod:   32,
+		FCnt:             10,
+		ServiceProfileID: sp.ID,
+		RoutingProfileID: rp.ID,
+	}
+	assert.NoError(storage.CreateMulticastGroup(ts.DB(), &ts.MulticastGroup))
 
 	d := storage.Device{
 		DevEUI:           lorawan.EUI64{2, 2, 2, 2, 2, 2, 2, 2},

@@ -1361,6 +1361,8 @@ func (n *NetworkServerAPI) CreateMulticastGroup(ctx context.Context, req *ns.Cre
 	copy(mg.ID[:], req.MulticastGroup.Id)
 	copy(mg.MCAddr[:], req.MulticastGroup.McAddr)
 	copy(mg.MCNetSKey[:], req.MulticastGroup.McNetSKey)
+	copy(mg.ServiceProfileID[:], req.MulticastGroup.ServiceProfileId)
+	copy(mg.RoutingProfileID[:], req.MulticastGroup.RoutingProfileId)
 
 	if err := storage.CreateMulticastGroup(config.C.PostgreSQL.DB, &mg); err != nil {
 		return nil, errToRPCError(err)
@@ -1383,13 +1385,15 @@ func (n *NetworkServerAPI) GetMulticastGroup(ctx context.Context, req *ns.GetMul
 
 	resp := ns.GetMulticastGroupResponse{
 		MulticastGroup: &ns.MulticastGroup{
-			Id:             mg.ID.Bytes(),
-			McAddr:         mg.MCAddr[:],
-			McNetSKey:      mg.MCNetSKey[:],
-			FCnt:           mg.FCnt,
-			Dr:             uint32(mg.DR),
-			Frequency:      uint32(mg.Frequency),
-			PingSlotPeriod: uint32(mg.PingSlotPeriod),
+			Id:               mg.ID.Bytes(),
+			McAddr:           mg.MCAddr[:],
+			McNetSKey:        mg.MCNetSKey[:],
+			FCnt:             mg.FCnt,
+			Dr:               uint32(mg.DR),
+			Frequency:        uint32(mg.Frequency),
+			PingSlotPeriod:   uint32(mg.PingSlotPeriod),
+			ServiceProfileId: mg.ServiceProfileID.Bytes(),
+			RoutingProfileId: mg.RoutingProfileID.Bytes(),
 		},
 	}
 
@@ -1432,6 +1436,8 @@ func (n *NetworkServerAPI) UpdateMulticastGroup(ctx context.Context, req *ns.Upd
 
 		copy(mg.MCAddr[:], req.MulticastGroup.McAddr)
 		copy(mg.MCNetSKey[:], req.MulticastGroup.McNetSKey)
+		copy(mg.ServiceProfileID[:], req.MulticastGroup.ServiceProfileId)
+		copy(mg.RoutingProfileID[:], req.MulticastGroup.RoutingProfileId)
 		mg.FCnt = req.MulticastGroup.FCnt
 		mg.DR = int(req.MulticastGroup.Dr)
 		mg.Frequency = int(req.MulticastGroup.Frequency)

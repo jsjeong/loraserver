@@ -23,16 +23,18 @@ const (
 
 // MulticastGroup defines a multicast-group.
 type MulticastGroup struct {
-	ID             uuid.UUID          `db:"id"`
-	CreatedAt      time.Time          `db:"created_at"`
-	UpdatedAt      time.Time          `db:"updated_at"`
-	MCAddr         lorawan.DevAddr    `db:"mc_addr"`
-	MCNetSKey      lorawan.AES128Key  `db:"mc_net_s_key"`
-	FCnt           uint32             `db:"f_cnt"`
-	GroupType      MulticastGroupType `db:"group_type"`
-	DR             int                `db:"dr"`
-	Frequency      int                `db:"frequency"`
-	PingSlotPeriod int                `db:"ping_slot_period"`
+	ID               uuid.UUID          `db:"id"`
+	CreatedAt        time.Time          `db:"created_at"`
+	UpdatedAt        time.Time          `db:"updated_at"`
+	MCAddr           lorawan.DevAddr    `db:"mc_addr"`
+	MCNetSKey        lorawan.AES128Key  `db:"mc_net_s_key"`
+	FCnt             uint32             `db:"f_cnt"`
+	GroupType        MulticastGroupType `db:"group_type"`
+	DR               int                `db:"dr"`
+	Frequency        int                `db:"frequency"`
+	PingSlotPeriod   int                `db:"ping_slot_period"`
+	RoutingProfileID uuid.UUID          `db:"routing_profile_id"` // there is no downlink data, but it can be used for future error reporting
+	ServiceProfileID uuid.UUID          `db:"service_profile_id"`
 }
 
 // MulticastQueueItem defines a multicast queue-item.
@@ -77,8 +79,10 @@ func CreateMulticastGroup(db sqlx.Execer, mg *MulticastGroup) error {
 			group_type,
 			dr,
 			frequency,
-			ping_slot_period
-		) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+			ping_slot_period,
+			service_profile_id,
+			routing_profile_id
+		) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 		mg.ID,
 		mg.CreatedAt,
 		mg.UpdatedAt,
@@ -89,6 +93,8 @@ func CreateMulticastGroup(db sqlx.Execer, mg *MulticastGroup) error {
 		mg.DR,
 		mg.Frequency,
 		mg.PingSlotPeriod,
+		mg.ServiceProfileID,
+		mg.RoutingProfileID,
 	)
 	if err != nil {
 		return handlePSQLError(err, "insert error")
@@ -140,7 +146,9 @@ func UpdateMulticastGroup(db sqlx.Execer, mg *MulticastGroup) error {
 			group_type = $6,
 			dr = $7,
 			frequency = $8,
-			ping_slot_period = $9
+			ping_slot_period = $9,
+			service_profile_id = $10,
+			routing_profile_id = $11
 		where
 			id = $1`,
 		mg.ID,
@@ -152,6 +160,8 @@ func UpdateMulticastGroup(db sqlx.Execer, mg *MulticastGroup) error {
 		mg.DR,
 		mg.Frequency,
 		mg.PingSlotPeriod,
+		mg.ServiceProfileID,
+		mg.RoutingProfileID,
 	)
 	if err != nil {
 		return handlePSQLError(err, "update error")
