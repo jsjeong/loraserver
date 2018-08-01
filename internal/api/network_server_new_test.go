@@ -428,20 +428,6 @@ func (ts *NetworkServerAPITestSuite) TestDevice() {
 				})
 				assert.NoError(err)
 
-				t.Run("List", func(t *testing.T) {
-					assert := require.New(t)
-
-					listResp, err := ts.api.GetMulticastGroupsForDevice(context.Background(), &ns.GetMulticastGroupsForDeviceRequest{
-						DevEui: devEUI[:],
-					})
-					assert.NoError(err)
-					assert.Equal([]*ns.DeviceMulticastGroup{
-						{
-							MulticastGroupId: mg1.ID.Bytes(),
-						},
-					}, listResp.MulticastGroups)
-				})
-
 				t.Run("Remove", func(t *testing.T) {
 					assert := require.New(t)
 

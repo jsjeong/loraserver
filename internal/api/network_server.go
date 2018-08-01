@@ -1505,26 +1505,6 @@ func (n *NetworkServerAPI) RemoveDeviceFromMulticastGroup(ctx context.Context, r
 	return &empty.Empty{}, nil
 }
 
-// GetMulticastGroupsForDevice returns the multicast-groups that are assigned to the given device.
-func (n *NetworkServerAPI) GetMulticastGroupsForDevice(ctx context.Context, req *ns.GetMulticastGroupsForDeviceRequest) (*ns.GetMulticastGroupsForDeviceResponse, error) {
-	var devEUI lorawan.EUI64
-	copy(devEUI[:], req.DevEui)
-
-	groups, err := storage.GetMulticastGroupsForDevEUI(config.C.PostgreSQL.DB, devEUI)
-	if err != nil {
-		return nil, errToRPCError(err)
-	}
-
-	var out ns.GetMulticastGroupsForDeviceResponse
-	for i := range groups {
-		out.MulticastGroups = append(out.MulticastGroups, &ns.DeviceMulticastGroup{
-			MulticastGroupId: groups[i].Bytes(),
-		})
-	}
-
-	return &out, nil
-}
-
 // EnqueueMulticastQueueItem creates the given multicast queue-item.
 func (n *NetworkServerAPI) EnqueueMulticastQueueItem(ctx context.Context, req *ns.EnqueueMulticastQueueItemRequest) (*empty.Empty, error) {
 	if req.Item == nil {
