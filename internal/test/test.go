@@ -6,6 +6,7 @@ import (
 
 	"github.com/garyburd/redigo/redis"
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/jmoiron/sqlx"
 	migrate "github.com/rubenv/sql-migrate"
 	log "github.com/sirupsen/logrus"
 	context "golang.org/x/net/context"
@@ -118,40 +119,40 @@ func MustResetDB(db *common.DBLogger) {
 
 // GatewayBackend is a test gateway backend.
 type GatewayBackend struct {
-	rxPacketChan            chan gw.RXPacket
-	TXPacketChan            chan gw.TXPacket
-	GatewayConfigPacketChan chan gw.GatewayConfigPacket
-	statsPacketChan         chan gw.GatewayStatsPacket
+	rxPacketChan            chan gw.UplinkFrame
+	TXPacketChan            chan gw.DownlinkFrame
+	GatewayConfigPacketChan chan gw.GatewayConfiguration
+	statsPacketChan         chan gw.GatewayStats
 }
 
 // NewGatewayBackend returns a new GatewayBackend.
 func NewGatewayBackend() *GatewayBackend {
 	return &GatewayBackend{
-		rxPacketChan:            make(chan gw.RXPacket, 100),
-		TXPacketChan:            make(chan gw.TXPacket, 100),
-		GatewayConfigPacketChan: make(chan gw.GatewayConfigPacket, 100),
+		rxPacketChan:            make(chan gw.UplinkFrame, 100),
+		TXPacketChan:            make(chan gw.DownlinkFrame, 100),
+		GatewayConfigPacketChan: make(chan gw.GatewayConfiguration, 100),
 	}
 }
 
 // SendTXPacket method.
-func (b *GatewayBackend) SendTXPacket(txPacket gw.TXPacket) error {
+func (b *GatewayBackend) SendTXPacket(txPacket gw.DownlinkFrame) error {
 	b.TXPacketChan <- txPacket
 	return nil
 }
 
 // SendGatewayConfigPacket method.
-func (b *GatewayBackend) SendGatewayConfigPacket(config gw.GatewayConfigPacket) error {
+func (b *GatewayBackend) SendGatewayConfigPacket(config gw.GatewayConfiguration) error {
 	b.GatewayConfigPacketChan <- config
 	return nil
 }
 
 // RXPacketChan method.
-func (b *GatewayBackend) RXPacketChan() chan gw.RXPacket {
+func (b *GatewayBackend) RXPacketChan() chan gw.UplinkFrame {
 	return b.rxPacketChan
 }
 
 // StatsPacketChan method.
-func (b *GatewayBackend) StatsPacketChan() chan gw.GatewayStatsPacket {
+func (b *GatewayBackend) StatsPacketChan() chan gw.GatewayStats {
 	return b.statsPacketChan
 }
 
@@ -326,4 +327,62 @@ func (t *NetworkControllerClient) HandleUplinkMetaData(ctx context.Context, in *
 func (t *NetworkControllerClient) HandleUplinkMACCommand(ctx context.Context, in *nc.HandleUplinkMACCommandRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	t.HandleDataUpMACCommandChan <- *in
 	return &empty.Empty{}, nil
+}
+
+// DatabaseTestSuiteBase provides the setup and teardown of the database
+// for every test-run.
+type DatabaseTestSuiteBase struct {
+	db *common.DBLogger
+	tx *common.TxLogger
+	p  *redis.Pool
+}
+
+// SetupSuite is called once before starting the test-suite.
+func (b *DatabaseTestSuiteBase) SetupSuite() {
+	conf := GetConfig()
+	db, err := common.OpenDatabase(conf.PostgresDSN)
+	if err != nil {
+		panic(err)
+	}
+	b.db = db
+	MustResetDB(db)
+
+	b.p = common.NewRedisPool(conf.RedisURL)
+
+	config.C.PostgreSQL.DB = db
+	config.C.Redis.Pool = b.p
+}
+
+// SetupTest is called before every test.
+func (b *DatabaseTestSuiteBase) SetupTest() {
+	tx, err := b.db.Beginx()
+	if err != nil {
+		panic(err)
+	}
+	b.tx = tx
+
+	MustFlushRedis(b.p)
+}
+
+// TearDownTest is called after every test.
+func (b *DatabaseTestSuiteBase) TearDownTest() {
+	if err := b.tx.Rollback(); err != nil {
+		panic(err)
+	}
+}
+
+// Tx returns a database transaction (which is rolled back after every
+// test).
+func (b *DatabaseTestSuiteBase) Tx() sqlx.Ext {
+	return b.tx
+}
+
+// DB returns the database object.
+func (b *DatabaseTestSuiteBase) DB() *common.DBLogger {
+	return b.db
+}
+
+// RedisPool returns the redis.Pool object.
+func (b *DatabaseTestSuiteBase) RedisPool() *redis.Pool {
+	return b.p
 }

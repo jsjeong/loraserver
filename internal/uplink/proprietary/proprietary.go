@@ -55,8 +55,8 @@ func sendProprietaryPayloadToApplicationServer(ctx *proprietaryContext) error {
 	handleReq := as.HandleProprietaryUplinkRequest{
 		MacPayload: ctx.DataPayload.Bytes,
 		Mic:        ctx.RXPacket.PHYPayload.MIC[:],
-		TxInfo:     ctx.RXPacket.GetGWUplinkTXInfo(),
-		RxInfo:     ctx.RXPacket.GetGWUplinkRXInfoSet(),
+		TxInfo:     ctx.RXPacket.TXInfo,
+		RxInfo:     ctx.RXPacket.RXInfoSet,
 	}
 
 	// get gateway info

@@ -22,6 +22,14 @@
   revision = "f8d816eb916de4ef3253cc6f1f1036d25a1e324b"
 
 [[projects]]
+  digest = "1:a2c1d0e43bd3baaa071d1b9ed72c27d78169b2b269f71c105ac4ba34b1be4a39"
+  name = "github.com/davecgh/go-spew"
+  packages = ["spew"]
+  pruneopts = "NUT"
+  revision = "346938d642f2ec3594ed81d874461961cd0faa76"
+  version = "v1.1.0"
+
+[[projects]]
   branch = "master"
   digest = "1:4e8c8dcc6d806023078d11a9bec6a292e40dbce137a3c2eb917de9b2fc013e47"
   name = "github.com/eclipse/paho.mqtt.golang"
@@ -191,6 +199,14 @@
   version = "v0.8.0"
 
 [[projects]]
+  digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  pruneopts = "NUT"
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   digest = "1:8125d3f3e31b73d9b6b04ccad828875c541036e0e4bc3a987a8721780503d24e"
   name = "github.com/rubenv/sql-migrate"
@@ -291,6 +307,18 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "aafc9e6bc7b7bb53ddaa75a5ef49a17d6e654be5"
+
+[[projects]]
+  digest = "1:ea401d5768217268c640bfbdf50bc58780b948866e79ffac57b07e310a560510"
+  name = "github.com/stretchr/testify"
+  packages = [
+    "assert",
+    "require",
+    "suite",
+  ]
+  pruneopts = "NUT"
+  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
+  version = "v1.2.2"
 
 [[projects]]
   branch = "master"
@@ -417,6 +445,7 @@
     "github.com/brocaar/lorawan/band",
     "github.com/eclipse/paho.mqtt.golang",
     "github.com/garyburd/redigo/redis",
+    "github.com/golang/protobuf/jsonpb",
     "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/duration",
@@ -434,6 +463,8 @@
     "github.com/smartystreets/goconvey/convey",
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
+    "github.com/stretchr/testify/require",
+    "github.com/stretchr/testify/suite",
     "golang.org/x/net/context",
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
