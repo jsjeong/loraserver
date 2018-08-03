@@ -64,6 +64,9 @@ message EncryptedFineTimestamp {
 
     // Encrypted 'main' fine-timestamp (ns precision part of the timestamp).
     bytes encrypted_ns = 2 [json_name = "encryptedNS"];
+
+    // FPGA ID.
+    bytes fpga_id = 3 [json_name = "fpgaID"];
 }
 
 message PlainFineTimestamp {
