@@ -3,11 +3,10 @@ package storage
 import (
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-
-	uuid "github.com/satori/go.uuid"
 
 	"github.com/brocaar/lorawan"
 )
@@ -65,7 +64,11 @@ func CreateMulticastGroup(db sqlx.Execer, mg *MulticastGroup) error {
 	mg.UpdatedAt = now
 
 	if mg.ID == uuid.Nil {
-		mg.ID = uuid.NewV4()
+		var err error
+		mg.ID, err = uuid.NewV4()
+		if err != nil {
+			return errors.Wrap(err, "new uuid v4 error")
+		}
 	}
 
 	_, err := db.Exec(`

@@ -3,6 +3,9 @@ package testsuite
 import (
 	"time"
 
+	"github.com/gofrs/uuid"
+	"github.com/stretchr/testify/suite"
+
 	commonPB "github.com/brocaar/loraserver/api/common"
 	"github.com/brocaar/loraserver/api/gw"
 	"github.com/brocaar/loraserver/internal/common"
@@ -11,8 +14,6 @@ import (
 	"github.com/brocaar/loraserver/internal/test"
 	"github.com/brocaar/lorawan"
 	"github.com/brocaar/lorawan/band"
-	uuid "github.com/satori/go.uuid"
-	"github.com/stretchr/testify/suite"
 )
 
 // UplinkIntegrationTestSuite provides a test-suite for integration-testing

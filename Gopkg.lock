@@ -227,14 +227,6 @@
   revision = "3f452fc0ebebbb784fdab91f7bc79a31dcacab5c"
 
 [[projects]]
-  digest = "1:6bc0652ea6e39e22ccd522458b8bdd8665bf23bdc5a20eec90056e4dc7e273ca"
-  name = "github.com/satori/go.uuid"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
-  version = "v1.2.0"
-
-[[projects]]
   digest = "1:b2339e83ce9b5c4f79405f949429a7f68a9a904fed903c672aac1e7ceb7f5f02"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
@@ -509,7 +501,6 @@
     "github.com/lib/pq",
     "github.com/pkg/errors",
     "github.com/rubenv/sql-migrate",
-    "github.com/satori/go.uuid",
     "github.com/sirupsen/logrus",
     "github.com/smartystreets/goconvey/convey",
     "github.com/spf13/cobra",
